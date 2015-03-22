@@ -16,11 +16,15 @@ private:
 	string m_dat;
 	string m_base;
 
+	int m_maxID;
+
 	int* m_vertexMap;
 	int getVertexID(int u,int& num);
 	void saveTmpEdges(Edge* edges,int size,int tmpFile);
 	bool static edgeCompare(const Edge &e0, const Edge &e1);
 	int min(Edge* es, int size);
+	bool mergeFinished(Edge* es, int size);
+	void merge(int size);
 	
 public:
 	Application();
