@@ -10,12 +10,12 @@
 using namespace std;
 
 void test_sort_edge() {
-	string tmp_dir = "/Users/dongwen/workspace/SemiKCore/sort_edge_tmp/";
+	string tmp_dir = "/Users/dongwen/workspace/Hummingbird/sort_edge_tmp/";
 
 	string sep = ",";
 	// string file = "/Users/dongwen/workspace/SemiKCore/dataset/uk-2002.txt";
-	string file = "/Users/dongwen/workspace/SemiKCore/dataset/ljournal-2008.txt";
-	string output_dir = "/Users/dongwen/workspace/SemiKCore/dataset/";
+	string file = "/Users/dongwen/workspace/Hummingbird/dataset/ljournal-2008.txt";
+	string output_dir = "/Users/dongwen/workspace/Hummingbird/dataset/";
 
 
 	int max_mem_edge = 100000000;
@@ -25,7 +25,7 @@ void test_sort_edge() {
 void test_semi_core() {
 	Application *app = new Application;
 
-	string graph_path = "/Users/dongwen/workspace/SemiKCore/dataset/";
+	string graph_path = "/Users/dongwen/workspace/Hummingbird/dataset/";
 	
 	app->load_graph_idx( graph_path );
 	//app->test_graph_scan();
