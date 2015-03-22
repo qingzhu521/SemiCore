@@ -1,20 +1,31 @@
 #include <cstdio>
+#include <string>
 #include <cstring>
+#include <algorithm>
 
 using namespace std;
 
+struct Edge{
+	int a;
+	int b;
+};
+
 class Application{
 private:
-	char* m_idx;
-	char* m_dat;
-	char* m_base;
+	string m_idx;
+	string m_dat;
+	string m_base;
 
 	int* m_vertexMap;
-	int getVertexID(int originID);
+	int getVertexID(int u,int& num);
+	void saveTmpEdges(Edge* edges,int size,int tmpFile);
+	bool static edgeCompare(const Edge &e0, const Edge &e1);
+	int min(Edge* es, int size);
 	
 public:
 	Application();
-	Application(char* base);
+	Application(string base);
 	~Application();
-	void sortEdge(char* txtFile,int maxID);
-}
+	void sortEdge(string txtFile);
+};
+
