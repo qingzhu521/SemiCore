@@ -30,7 +30,7 @@ void test_semi_core() {
 	app->load_graph_idx( graph_path );
 	//app->test_graph_scan();
 	app->process_basic();
-	//app->print_distribution();
+	app->print_distribution();
 	delete app;
 }
 
@@ -41,7 +41,7 @@ int main(){
 	printf( "---start-------\n" );
 	// long t = clock();
 
-	//test_sort_edge();
+	test_sort_edge();
 	test_semi_core();
 
 	// t = clock() - t;

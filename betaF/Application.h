@@ -1,7 +1,12 @@
+#ifndef APPLICATION_H_
+#define APPLICATION_H_
+
 #include <cstdio>
 #include <string>
 #include <cstring>
 #include <algorithm>
+
+#include "MyFile.h"
 
 using namespace std;
 
@@ -18,6 +23,7 @@ private:
 	string m_info;
 	int m_m;
 	short m_maxDegree;
+	short* ub;
 
 	int m_maxID;
 
@@ -28,7 +34,7 @@ private:
 	int min(Edge* es, int size);
 	bool mergeFinished(Edge* es, int size);
 	void merge(int size);
-	void loadNbr(int u, int* nbr, short& degree, FILE* fIdx, FILE* fDat);
+	void loadNbr(int u, int* nbr, short& degree, MyReadFile& fIdx, MyReadFile& fDat);
 	
 public:
 	Application();
@@ -36,6 +42,7 @@ public:
 	~Application();
 	void sortEdge(string txtFile);
 	void semiKCore();
-	void printCoreDistribution(short* ub);
+	void printCoreDistribution();
 };
 
+#endif /* APPLICATION_H_ */

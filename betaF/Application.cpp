@@ -247,20 +247,28 @@ int Application::getVertexID(int u,int &num){
 
 void Application::semiKCore(){
 	
-	FILE* fInfo = fopen(m_info.c_str(),"rb");
+	MyReadFile fInfo( m_info );
+	fInfo.fopen( BUFFERED );
+	// FILE* fInfo = fopen(m_info.c_str(),"rb");
 	
 	// initialize verterx number: n
-	fread(&m_m,sizeof(int),1,fInfo);
+	fInfo.fread(&m_m,sizeof(int));
+	// fread(&m_m,sizeof(int),1,fInfo);
 	// initialize max degree: maxDegree
-	fread(&m_maxDegree,sizeof(short),1,fInfo);
-	fclose(fInfo);
-
+	fInfo.fread(&m_maxDegree,sizeof(short));
+	// fread(&m_maxDegree,sizeof(short),1,fInfo);
+	// fclose(fInfo);
+	fInfo.fclose();
 	long t = clock();
-	FILE* fIdx = fopen(m_idx.c_str(),"rb");
-	FILE* fDat = fopen(m_dat.c_str(),"rb");
+	// FILE* fIdx = fopen(m_idx.c_str(),"rb");
+	// FILE* fDat = fopen(m_dat.c_str(),"rb");
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
 
 	// array for saving upper bound of vertex core number, array will update iteratively
-	short* ub = new short[m_m];
+	ub = new short[m_m];
 	// array for saving count number of vertex
 	short* cnt = new short[m_m];
 
@@ -274,8 +282,10 @@ void Application::semiKCore(){
 	// initialize array ub and cnt by degree and 0 respectively
 	long tmp;
 	for (int i = 0; i < m_m; ++i){
-		fread(&tmp,sizeof(long),1,fIdx);
-		fread(&ub[i],sizeof(short),1,fIdx);
+		fIdx.fread(&tmp,sizeof(long));
+		fIdx.fread(&ub[i],sizeof(short));
+		// fread(&tmp,sizeof(long),1,fIdx);
+		// fread(&ub[i],sizeof(short),1,fIdx);
 	}
 	memset(cnt,0,sizeof(short)*m_m);
 
@@ -336,8 +346,10 @@ void Application::semiKCore(){
 	delete[] nbr;
 	delete[] cnt;
 	delete[] ub;
-	fclose(fDat);
-	fclose(fIdx);
+	// fclose(fDat);
+	// fclose(fIdx);
+	fDat.fclose();
+	fIdx.fclose();
 
 }
 
@@ -348,20 +360,25 @@ void Application::semiKCore(){
 // 	}
 // }
 
-void Application::loadNbr(int u, int* nbr, short& degree, FILE* fIdx, FILE* fDat){
-	fseek(fIdx,u*(sizeof(long)+sizeof(short)),SEEK_SET);
+void Application::loadNbr(int u, int* nbr, short& degree, MyReadFile& fIdx, MyReadFile& fDat){
+	// fseek(fIdx,u*(sizeof(long)+sizeof(short)),SEEK_SET);
+	fIdx.fseek(u*(sizeof(long)+sizeof(short)));
 
 	long pos;
-	fread(&pos,sizeof(long),1,fIdx);
-	fread(&degree,sizeof(short),1,fIdx);
+	fIdx.fread(&pos,sizeof(long));
+	fIdx.fread(&degree,sizeof(short));
 
-	fseek(fDat,pos,SEEK_SET);
+	fDat.fseek(pos);
+	// fread(&pos,sizeof(long),1,fIdx);
+	// fread(&degree,sizeof(short),1,fIdx);
+
+	// fseek(fDat,pos,SEEK_SET);
 	// load all neighbors of vertex u
-	fread(nbr,sizeof(int),degree,fDat);
+	fDat.fread(nbr,sizeof(int)*degree);
 
 }
 
-void Application::printCoreDistribution(short* ub){
+void Application::printCoreDistribution(){
 	int* core = new int[m_maxDegree];
 	memset(core,0,sizeof(int)*m_maxDegree);
 	int maxCore = 0;
