@@ -31,4 +31,4 @@ java -classpath "./bin\
 :../lib/webgraph/webgraph-deps/wstx-asl-3.2.6.jar\
 :../lib/webgraph/webgraph-deps/concurrent-1.3.4.jar\
 :../lib/webgraph/webgraph-deps/log4j-over-slf4j-1.7.5.jar\
-" txt.TestGeneral /Users/dongwen/workspace/Hummingbird/dataset/ljournal-2008/ljournal-2008 /Users/dongwen/workspace/Hummingbird/dataset/ljournal-2008.txt
+" txt.TestGeneral /Users/dongwen/workspace/Hummingbird/dataset/indochina-2004/indochina-2004 /Users/dongwen/workspace/Hummingbird/dataset/indochina-2004.txt

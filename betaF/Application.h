@@ -22,11 +22,11 @@ private:
 	string m_base;
 	string m_info;
 	int m_m;
-	short m_maxDegree;
+	int m_maxDegree;
 	short* ub;
 
 	int m_maxID;
-
+	const static short m_maxCore = 30000;
 	int* m_vertexMap;
 	int getVertexID(int u,int& num);
 	void saveTmpEdges(Edge* edges,int size,int tmpFile);
@@ -34,7 +34,7 @@ private:
 	int min(Edge* es, int size);
 	bool mergeFinished(Edge* es, int size);
 	void merge(int size);
-	void loadNbr(int u, int* nbr, short& degree, MyReadFile& fIdx, MyReadFile& fDat);
+	void loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
 	
 public:
 	Application();

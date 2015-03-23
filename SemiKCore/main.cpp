@@ -14,7 +14,7 @@ void test_sort_edge() {
 
 	string sep = ",";
 	// string file = "/Users/dongwen/workspace/SemiKCore/dataset/uk-2002.txt";
-	string file = "/Users/dongwen/workspace/Hummingbird/dataset/ljournal-2008.txt";
+	string file = "/Users/dongwen/workspace/Hummingbird/dataset/uk-2002.txt";
 	string output_dir = "/Users/dongwen/workspace/Hummingbird/dataset/";
 
 
@@ -30,7 +30,7 @@ void test_semi_core() {
 	app->load_graph_idx( graph_path );
 	//app->test_graph_scan();
 	app->process_basic();
-	//app->print_distribution();
+	app->print_distribution();
 	delete app;
 }
 
@@ -41,7 +41,7 @@ int main(){
 	printf( "---start-------\n" );
 	// long t = clock();
 
-	// test_sort_edge();
+	//test_sort_edge();
 	test_semi_core();
 
 	// t = clock() - t;

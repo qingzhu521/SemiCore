@@ -68,7 +68,6 @@ void MyIO::output_idx(vector<fileint> &pos, string output_dir){
 	FILE *fout = fopen(st, "wb");
 	int len = (int)pos.size();
 	fwrite( &len, sizeof(int), 1, fout);
-
 	for( int i = 0; i < len; ++i ) {
 		char block_id = -1;
 		int pos_in_block = -1;

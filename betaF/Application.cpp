@@ -73,12 +73,13 @@ void Application::sortEdge(string txtFile){
 	printf("load %d edges\n",size);
 	saveTmpEdges(edges,size,tmpFile);
 
-	merge(tmpFile+1);
 
 	delete[] m_vertexMap;
 	delete[] edges;
 
 	fclose(fp);
+
+	merge(tmpFile+1);
 
 }
 
@@ -103,7 +104,9 @@ void Application::saveTmpEdges(Edge* edges, int size, int tmpFile){
 	FILE* fo = fopen(fileName,"wb");
 	for (int i = 0; i < size; ++i){
 		fwrite( edges+i, sizeof(Edge), 1, fo );
+		// printf("edge[%d,%d]\n",edges[i].a,edges[i].b );
 	}
+	printf("------\n\n");
 	fclose(fo);
 	
 }
@@ -134,11 +137,12 @@ void Application::merge(int size){
 
 	int i = 0;
 
-	short maxDegree = 0;
+	int maxDegree = 0;
 
-	short degree = -1;
+	int degree = -1;
 	printf("start merge\n");
-	
+	int x=0;
+	int f = 0;
 	while(mergeFinished(es,size)){
 		minIndex = min(es,size);
 		int u = es[minIndex].a;
@@ -153,8 +157,9 @@ void Application::merge(int size){
 			if(degree != -1){
 
 				// write the vertex degree in .idx file
-				fwrite(&degree,sizeof(short),1,fIdx);
+				fwrite(&degree,sizeof(int),1,fIdx);
 				maxDegree = degree>maxDegree?degree:maxDegree;
+				// printf("max degree: %d\n",maxDegree );
 			}
 
 			// write the vertex beginning position in .dat file to .idx file
@@ -165,15 +170,14 @@ void Application::merge(int size){
 
 			fwrite(&v,sizeof(int),1,fDat);
 
-			
 
 		}else if(v != previousB){
 
 			fwrite(&v,sizeof(int),1,fDat);
 			++degree;
 
-
 		}
+		
 		// if u==previousA & v==previousB, ignore edge(u,v) cause it is same as previous one.
 
 		previousA = u;
@@ -187,7 +191,7 @@ void Application::merge(int size){
 
 	}
 
-	fwrite(&degree,sizeof(short),1,fIdx);
+	fwrite(&degree,sizeof(int),1,fIdx);
 
 	maxDegree = degree>maxDegree?degree:maxDegree;
 
@@ -198,7 +202,7 @@ void Application::merge(int size){
 
 	FILE* fInfo = fopen(m_info.c_str(),"wb");
 	fwrite(&vertexNum,sizeof(int),1,fInfo);
-	fwrite(&maxDegree,sizeof(short),1,fInfo);
+	fwrite(&maxDegree,sizeof(int),1,fInfo);
 	fclose(fInfo);
 
 	for (int i = 0; i < size ; ++i){
@@ -255,7 +259,8 @@ void Application::semiKCore(){
 	// initialize verterx number: n
 	fInfo.fread(&m_m,sizeof(int));
 	
-	fInfo.fread(&m_maxDegree,sizeof(short));
+	fInfo.fread(&m_maxDegree,sizeof(int));
+	printf("max degree: %d\n",m_maxDegree );
 	
 	fInfo.fclose();
 	long t = clock();
@@ -278,20 +283,23 @@ void Application::semiKCore(){
 
 	// initialize array ub and cnt by degree and 0 respectively
 	long tmp;
+	int degreeTmp;
 	for (int i = 0; i < m_m; ++i){
 		fIdx.fread(&tmp,sizeof(long));
-		fIdx.fread(&ub[i],sizeof(short));
-		
+
+		fIdx.fread(&degreeTmp,sizeof(int));
+		ub[i] = degreeTmp>m_maxCore?m_maxCore:degreeTmp;
 	}
 	memset(cnt,0,sizeof(short)*m_m);
 
 
-	short degree;
+	int degree;
 	int v;
 
 	int iteration = 0;
 	
-	
+	int memory = (sizeof(short)*m_m*2+sizeof(int)*m_maxDegree*2)/1024/1024;
+	printf("Memory useage: %d MB\n",memory );
 	// if all vertexs satisfy: cnt number >= ub number, loop will terminate and we get final core number.
 	bool update = true;
 	while(update){
@@ -300,6 +308,7 @@ void Application::semiKCore(){
 
 		
 		for (int u = 0; u < m_m; ++u){
+			
 			if(cnt[u]>=ub[u]){
 				continue;
 			}
@@ -318,8 +327,8 @@ void Application::semiKCore(){
 
 
 			// calculate new ub and new cnt
-			cnt[u] = nbrCnt[originUb];
-			for (int i = originUb-1; i > 0; --i){
+			cnt[u] = 0;
+			for (int i = originUb; i > 0; --i){
 				cnt[u] += nbrCnt[i];
 				if(cnt[u] >= i){
 					ub[u] = i;
@@ -343,9 +352,9 @@ void Application::semiKCore(){
 	
 	t = clock() - t;
 	printf( "processing time = %0.3lf sec\n", t/1000000.0 );
-	
-	int memory = (sizeof(short)*m_m*2+sizeof(short)*m_maxDegree+sizeof(int)*m_maxDegree)/1024/1024;
 	printf("Memory useage: %d MB\n",memory );
+	
+	
 	
 	delete[] nbrCnt;
 	delete[] nbr;
@@ -358,19 +367,16 @@ void Application::semiKCore(){
 }
 
 
-void Application::loadNbr(int u, int* nbr, short& degree, MyReadFile& fIdx, MyReadFile& fDat){
-	// fseek(fIdx,u*(sizeof(long)+sizeof(short)),SEEK_SET);
-	fIdx.fseek(u*(sizeof(long)+sizeof(short)));
+void Application::loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat){
+	
+	fIdx.fseek(u*(sizeof(long)+sizeof(int)));
 
 	long pos;
 	fIdx.fread(&pos,sizeof(long));
-	fIdx.fread(&degree,sizeof(short));
+	fIdx.fread(&degree,sizeof(int));
 
 	fDat.fseek(pos);
-	// fread(&pos,sizeof(long),1,fIdx);
-	// fread(&degree,sizeof(short),1,fIdx);
-
-	// fseek(fDat,pos,SEEK_SET);
+	
 	// load all neighbors of vertex u
 	fDat.fread(nbr,sizeof(int)*degree);
 
@@ -381,11 +387,12 @@ void Application::printCoreDistribution(){
 	memset(core,0,sizeof(int)*m_maxDegree);
 	int maxCore = 0;
 	for (int i = 0; i < m_m; ++i){
-
 		++core[ub[i]];
 		maxCore = ub[i]>maxCore?ub[i]:maxCore;
 	}
 
+	// printf("core[1]: %d\n",core[1]);
+	// printf("core[%d]: %d\n",maxCore,core[maxCore] );
 	for (int i = 0; i <= maxCore; ++i){
 		if(core[i]>0){
 			printf("core %d: %d\n",i,core[i] );
