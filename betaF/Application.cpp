@@ -11,7 +11,9 @@ Application::Application(){
 
 }
 Application::~Application(){
-
+	if(ub!=NULL){
+		delete[] ub;
+	}
 }
 
 void Application::sortEdge(string txtFile){
@@ -45,8 +47,8 @@ void Application::sortEdge(string txtFile){
 
 		sscanf(line,"%d,%d",&u,&v);
 
-		if(u == v)
-			continue;
+		// if(u == v)
+		// 	continue;
 
 		u = getVertexID(u,num);
 		v = getVertexID(v,num);
@@ -249,19 +251,15 @@ void Application::semiKCore(){
 	
 	MyReadFile fInfo( m_info );
 	fInfo.fopen( BUFFERED );
-	// FILE* fInfo = fopen(m_info.c_str(),"rb");
 	
 	// initialize verterx number: n
 	fInfo.fread(&m_m,sizeof(int));
-	// fread(&m_m,sizeof(int),1,fInfo);
-	// initialize max degree: maxDegree
+	
 	fInfo.fread(&m_maxDegree,sizeof(short));
-	// fread(&m_maxDegree,sizeof(short),1,fInfo);
-	// fclose(fInfo);
+	
 	fInfo.fclose();
 	long t = clock();
-	// FILE* fIdx = fopen(m_idx.c_str(),"rb");
-	// FILE* fDat = fopen(m_dat.c_str(),"rb");
+	
 	MyReadFile fIdx( m_idx );
 	fIdx.fopen( BUFFERED );
 	MyReadFile fDat( m_dat );
@@ -276,16 +274,14 @@ void Application::semiKCore(){
 	int* nbr = new int[m_maxDegree];
 	short* nbrCnt = new short[m_maxDegree];
 
-	// if all vertexs satisfy: cnt number >= ub number, loop will terminate and we get final core number.
-	bool update = true;
+	
 
 	// initialize array ub and cnt by degree and 0 respectively
 	long tmp;
 	for (int i = 0; i < m_m; ++i){
 		fIdx.fread(&tmp,sizeof(long));
 		fIdx.fread(&ub[i],sizeof(short));
-		// fread(&tmp,sizeof(long),1,fIdx);
-		// fread(&ub[i],sizeof(short),1,fIdx);
+		
 	}
 	memset(cnt,0,sizeof(short)*m_m);
 
@@ -294,10 +290,15 @@ void Application::semiKCore(){
 	int v;
 
 	int iteration = 0;
-
+	
+	
+	// if all vertexs satisfy: cnt number >= ub number, loop will terminate and we get final core number.
+	bool update = true;
 	while(update){
 		update = false;
 		printf("iteration: %d\n",++iteration );
+
+		
 		for (int u = 0; u < m_m; ++u){
 			if(cnt[u]>=ub[u]){
 				continue;
@@ -307,9 +308,9 @@ void Application::semiKCore(){
 			// get neighbors of vertex i
 			loadNbr(u,nbr,degree,fIdx,fDat);
 			
-			
+
 			// get the core distribution for neighbors' contribution
-			memset(nbrCnt,0,sizeof(short)*m_maxDegree);
+			memset(nbrCnt,0,sizeof(short)*(originUb+1));
 			for (int j = 0; j < degree; ++j){
 				v = nbr[j];
 				++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
@@ -317,48 +318,43 @@ void Application::semiKCore(){
 
 
 			// calculate new ub and new cnt
-			cnt[u] = 0;
-			for (int i = originUb; i > 0; --i){
+			cnt[u] = nbrCnt[originUb];
+			for (int i = originUb-1; i > 0; --i){
 				cnt[u] += nbrCnt[i];
 				if(cnt[u] >= i){
 					ub[u] = i;
 					break;
 				}
 			}
-			
 			// process neighbors
-			for (int i = 0; i < degree; ++i){
-				v = nbr[i];
-				if(ub[v]>ub[u] && ub[v]<= originUb){
-					--cnt[v];
-					update = true;
+			if(ub[u]<originUb){
+				update = true;
+				for (int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(ub[v]>ub[u] && ub[v]<= originUb){
+						--cnt[v];
+					}
 				}
 			}
 			
-
+			
 		}
 	}
+	
 	t = clock() - t;
 	printf( "processing time = %0.3lf sec\n", t/1000000.0 );
-	//printCoreDistribution(ub);
+	
 
 	delete[] nbrCnt;
 	delete[] nbr;
 	delete[] cnt;
-	delete[] ub;
-	// fclose(fDat);
-	// fclose(fIdx);
+	
+	
 	fDat.fclose();
 	fIdx.fclose();
 
 }
 
-// short Application::getCore(int u, short degree, short* ub, int* nbr){
-// 	short cnt = 0;
-// 	for (int i = originUb-1; i > 0 ; --i){
-		
-// 	}
-// }
 
 void Application::loadNbr(int u, int* nbr, short& degree, MyReadFile& fIdx, MyReadFile& fDat){
 	// fseek(fIdx,u*(sizeof(long)+sizeof(short)),SEEK_SET);

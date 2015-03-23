@@ -160,10 +160,15 @@ void Application::process_basic() {
 		
 		++iteration;
 		cnt = 0;
-		
-		
-		
 		printf( "Iteration %d...\n", iteration );
+
+		// if(iteration==2){
+		// 	t = clock() - t;
+		// 	printf( "it 2 time = %0.3lf sec\n", t/1000000.0 );
+		// }
+		
+		
+		
 
 		MyReadFile rf(st_dat);
 		rf.fopen( BUFFERED );
@@ -215,6 +220,7 @@ void Application::process_basic() {
 					}
 				}
 			}
+			
 		}
 
 		rf_idx.fclose();
