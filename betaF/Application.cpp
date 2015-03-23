@@ -344,7 +344,9 @@ void Application::semiKCore(){
 	t = clock() - t;
 	printf( "processing time = %0.3lf sec\n", t/1000000.0 );
 	
-
+	int memory = (sizeof(short)*m_m*2+sizeof(short)*m_maxDegree+sizeof(int)*m_maxDegree)/1024/1024;
+	printf("Memory useage: %d MB\n",memory );
+	
 	delete[] nbrCnt;
 	delete[] nbr;
 	delete[] cnt;
