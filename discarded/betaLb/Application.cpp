@@ -14,6 +14,9 @@ Application::~Application(){
 	if(ub!=NULL){
 		delete[] ub;
 	}
+	if(lb!=NULL){
+		delete[] lb;
+	}
 }
 
 void Application::sortEdge(string txtFile){
@@ -272,6 +275,8 @@ void Application::semiKCore(){
 
 	// array for saving upper bound of vertex core number, array will update iteratively
 	ub = new short[m_m];
+
+	lb = new short[m_m]
 	// array for saving count number of vertex
 	short* cnt = new short[m_m];
 
@@ -297,8 +302,14 @@ void Application::semiKCore(){
 	int v;
 
 	int iteration = 0;
-	
-	int memory = (sizeof(short)*m_m*2+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree)/1024/1024;
+	int byteUse = sizeof(short)*m_m*2+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree;
+	int memory = byteUse/1024/1024;
+
+	m_maxEdges = (3*1024*1024*1024-byteUse)/sizeof(int)/2;
+
+	int currentEdges = 0;
+	unordered_map<int,Node> subgraph;
+
 	printf("Memory useage: %d MB\n",memory );
 	// if all vertexs satisfy: cnt number >= ub number, loop will terminate and we get final core number.
 	bool update = true;
@@ -308,6 +319,7 @@ void Application::semiKCore(){
 
 		
 		for (int u = 0; u < m_m; ++u){
+			m_isAll = true;
 			
 			if(cnt[u]>=ub[u]){
 				continue;
@@ -315,7 +327,13 @@ void Application::semiKCore(){
 
 			short originUb = ub[u];
 			// get neighbors of vertex i
-			loadNbr(u,nbr,degree,fIdx,fDat);
+			if(loadNbr(u,nbr,degree,fIdx,fDat,subgraph,lb)){
+				delete[] ub;
+				ub = lb;
+				delete[] nbrCnt;
+				delete[] nbr;
+				delete[] cnt;
+			}
 			
 
 			// get the core distribution for neighbors' contribution
@@ -367,7 +385,7 @@ void Application::semiKCore(){
 }
 
 
-void Application::loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat){
+bool Application::loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat, unordered_map<int,Node*>& subgraph, int& currentEdges){
 	
 	fIdx.fseek(u*(sizeof(long)+sizeof(int)));
 
@@ -378,7 +396,35 @@ void Application::loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyRead
 	fDat.fseek(pos);
 	
 	// load all neighbors of vertex u
-	fDat.fread(nbr,sizeof(int)*degree);
+	for (int i = 0; i < degree; ++i){
+		fDat.fread(nbr[i],sizeof(int));
+		if (!subgraph[u]){
+			Node* n = new Node();
+			n->degree = 0;
+			subgraph.insert(make_pair(u, n));
+		}
+
+		// 
+
+
+
+		if(subgraph[u].nbr.insert(nbr[i]).second){
+			++subgraph[u]->degree;
+			++currentEdges;
+			if(currentEdges>=m_maxEdges){
+				imKCore(subgraph);
+				currentEdges = 0;
+			}
+		}else{
+			// have loaded all remaining edges
+			imKCore(subgraph);
+			return true;
+		}
+		
+		
+	}
+	return false;
+	
 
 }
 
@@ -404,4 +450,58 @@ void Application::printCoreDistribution(){
 
 
 	
+}
+
+void Application::imKCore(unordered_map<int,Node*>& graph){
+	int core;
+	int previousCore = 0;
+	while(graph.size()){
+		int uid = minDegreeVertex(graph);
+		Node* u = graph[uid];
+		if(u->degree<previousCore){
+			core = previousCore;
+		}else{
+			core = u->degree;
+		}
+
+		previousCore = core;
+		
+		// update core number in lb[]
+		if(lb[uid]<core){
+			lb[uid] = core;
+		}
+
+		// delete the edges connected to u
+		unordered_set<int> nbr = u.nbr;
+		unordered_set<int>::iterator sIr = nbr.begin();
+		Node* v;
+
+		// delete nbrs' degree and induced edges
+		for (; sIr != nbr.end(); ++SIr){
+			v = graph[*sIr];
+			--v->degree;
+			v->nbr.erase(uid);
+
+		}
+
+		graph.erase(uid);
+		delete u;
+
+	}
+	
+
+
+	
+}
+
+int Application::minDegreeVertex(unordered_map<int,Node*>& graph){
+	
+	unordered_map<int,Node*>::iterator it = graph.begin();
+	int min = it->first;
+	for (; it != graph.end(); ++it){
+		if(it->second->degree<graph[min]->degree){
+			min = it->first;
+		}
+	}
+	return min;
 }
