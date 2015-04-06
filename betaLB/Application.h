@@ -23,6 +23,7 @@ struct Vertex{
 	vector<int> nbr;
 	Vertex* next;
 	Vertex* previous;
+	short deposit;
 };
 
 class Application{

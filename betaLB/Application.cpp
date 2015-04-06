@@ -298,6 +298,7 @@ void Application::semiKCore(){
 		imGraph[i] = new Vertex;
 		imGraph[i]->id = i;
 		imGraph[i]->core = 0;
+		imGraph[i]->deposit = 0;
 		imGraph[i]->previous = NULL;
 		imGraph[i]->next = NULL;
 	}
@@ -311,7 +312,7 @@ void Application::semiKCore(){
 
 
 	// calculate the rest size
-	int size = 3*sizeof(short)*m_m+sizeof(short)*m_maxDegree+sizeof(int)*m_maxDegree+(sizeof(int)*2+sizeof(long)*3)*m_m+sizeof(long)*(m_maxCore+1);
+	int size = 3*sizeof(short)*m_m+sizeof(short)*m_maxDegree+sizeof(int)*m_maxDegree+(sizeof(int)*3+sizeof(long)*3+sizeof(short))*m_m+sizeof(long)*(m_maxCore+1);
 	int x = size/1024/1024;
 	printf("total memmory: %dMB\n",x );
 	printf("sizeof int: %lu\n",sizeof(int) );
@@ -486,23 +487,35 @@ void Application::loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyRead
 			if(find(sd->nbr.begin(),sd->nbr.end(),bd->core) != sd->nbr.end()){
 				continue;
 			}
-		}else{ 
-			if(imGraph[u]->core == 0){
-				imVertices.push_back(u);
-			}
-			if(imGraph[nbr[i]]->core == 0){
-				imVertices.push_back(nbr[i]);
-			}
 		}
 		
+		if(m_lb[u]>=m_ub[nbr[i]]){
+			if(imGraph[nbr[i]]->core == 0 && imGraph[nbr[i]]->deposit == 0){
+				imVertices.push_back(nbr[i]);
+			}
+			++(imGraph[nbr[i]]->deposit);
 
-		// update vertex number
-		++currentEdges;
-		imGraph[u]->nbr.push_back(nbr[i]);
-		++(imGraph[u]->core);
+		}else if(m_ub[u]<=m_lb[nbr[i]]){
+			if(imGraph[u]->core == 0 && imGraph[u]->deposit == 0){
+				imVertices.push_back(u);
+			}
+			++(imGraph[u]->deposit);
+		}else{
+			if(imGraph[u]->core == 0 && imGraph[u]->deposit == 0){
+				imVertices.push_back(u);
+			}
+			if(imGraph[nbr[i]]->core == 0 && imGraph[nbr[i]]->deposit == 0){
+				imVertices.push_back(nbr[i]);
+			}
+			// update vertex number
+			++currentEdges;
+			imGraph[u]->nbr.push_back(nbr[i]);
+			++(imGraph[u]->core);
+			
+			imGraph[nbr[i]]->nbr.push_back(u);
+			++(imGraph[nbr[i]]->core);
+		}
 		
-		imGraph[nbr[i]]->nbr.push_back(u);
-		++(imGraph[nbr[i]]->core);
 		
 		
 	}
@@ -517,6 +530,12 @@ void Application::imKCore(Vertex** imGraph, Vertex** imCore, vector<int>& imVert
 		Vertex* u = imGraph[*it];
 		u->previous = NULL;
 		u->next = NULL;
+		if(m_lb[u] == m_ub[u]){
+			u->core = m_ub[u];
+		}
+		if(u->core + u->deposit > m_lb[u]){
+			no need deposit!!!!
+		}
 		if(imCore[u->core]){
 			imCore[u->core]->previous = u;
 			u->next = imCore[u->core];
