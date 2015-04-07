@@ -483,7 +483,6 @@ void Application::semiKCore(){
 void Application::loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat, long& currentEdges, Vertex** imGraph, Vertex** imCore, vector<int>& imVertices, int& firstU, int& firstV){
 	
 	fIdx.fseek(u*(sizeof(long)+sizeof(int)));
-
 	long pos;
 	fIdx.fread(&pos,sizeof(long));
 	fIdx.fread(&degree,sizeof(int));
