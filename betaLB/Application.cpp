@@ -6,7 +6,8 @@ Application::Application(string base){
 	m_idx = base+"graph.idx";
 	m_info = base+"graph.info";
 	m_maxID = 1000000000;
-	m_maxCore = 30000;
+	// m_maxCore = 30000;
+	m_maxCore = 500;
 }
 Application::Application(){
 
@@ -298,7 +299,7 @@ void Application::semiKCore(){
 		imGraph[i] = new Vertex;
 		imGraph[i]->id = i;
 		imGraph[i]->core = 0;
-		imGraph[i]->deposit = 0;
+		imGraph[i]->discard = 0;
 		imGraph[i]->previous = NULL;
 		imGraph[i]->next = NULL;
 	}
@@ -309,14 +310,15 @@ void Application::semiKCore(){
 	// array for im-memory k-core
 	Vertex** imCore = new Vertex*[m_maxCore+1];
 	memset(imCore,0,sizeof(Vertex*)*(m_maxCore+1));
-
+	printf("maxCore: %d\n",m_maxCore );
 
 	// calculate the rest size
 	int size = 3*sizeof(short)*m_m+sizeof(short)*m_maxDegree+sizeof(int)*m_maxDegree+(sizeof(int)*3+sizeof(long)*3+sizeof(short))*m_m+sizeof(long)*(m_maxCore+1);
 	int x = size/1024/1024;
 	printf("total memmory: %dMB\n",x );
-	printf("sizeof int: %lu\n",sizeof(int) );
-	m_restEdges = (2*1024 - x)/2/sizeof(int)*1024*1024;
+
+	m_restEdges = (1*1024 - x)/2/sizeof(int)*1024*1024;
+	m_restEdges = 1000;
 	printf("load most %ld edges\n",m_restEdges);
 
 	long t = clock();
@@ -364,46 +366,67 @@ void Application::semiKCore(){
 				u = waitVertices.front();
 				waitVertices.pop();
 				inMemory = true;
+				// if(u == 88){
+				// 	printf("reload u = %d\n",u );
+				// }
+				
 			}
-
+			// if(u == 88 ){
+			// 	printf("into 88,ub=%d,lb=%d,cnt=%d\n",m_ub[u],m_lb[u],cnt[u] );
+			// 	if(inMemory){
+			// 		printf("isInMemory\n");
+			// 	}
+			// }
 			if(m_lb[u] == m_ub[u] || cnt[u]>=m_ub[u]){
+				// if(u == 88){
+				// 	printf("continue\n");
+				// }
 				continue;
 			}
-
+			
 			short originUb = m_ub[u];
+
+			int loadDegree,deposit=0;
 			// get neighbors of vertex i
 			if(inMemory){
 				degree = imGraph[u]->core;
-				for (int i = 0; i < degree; ++i){
+				for (int i = 0; i < imGraph[u]->nbr.size(); ++i){
 					nbr[i] = imGraph[u]->nbr[i];
 				}
+				loadDegree = imGraph[u]->nbr.size();
 			}else{
 				loadNbr(u,nbr,degree,fIdx,fDat,currentEdges,imGraph,imCore,imVertices,firstU,firstV);
+				loadDegree = degree;
 			}
 			
 			
 			if(m_lb[u] == originUb-1){
-				printf("lb[%d]=%d,originUb=%d\n",u,m_lb[u],originUb );
-				printf("hit!!!!!!!!!!!\n");
+				// printf("lb[%d]=%d,originUb=%d\n",u,m_lb[u],originUb );
+				// printf("hit!!!!!!!!!!!\n");
 				--m_ub[u];
 			}else{
 				// get the core distribution for neighbors' contribution
+				if(inMemory){
+					deposit = imGraph[u]->core - loadDegree;
+				}
 				memset(nbrCnt,0,sizeof(short)*(originUb+1));
-				for (int j = 0; j < degree; ++j){
+				for (int j = 0; j < loadDegree; ++j){
 					v = nbr[j];
 					++nbrCnt[m_ub[v]<m_ub[u]?m_ub[v]:m_ub[u]];
 				}
 
 
 				// calculate new ub and new cnt
-				cnt[u] = 0;
-				for (int i = originUb; i > 0; --i){
+				cnt[u] = deposit;
+				for (int i = originUb-deposit; i > 0; --i){
 					cnt[u] += nbrCnt[i];
 					if(cnt[u] >= i){
 						m_ub[u] = i;
 						break;
 					}
 				}
+
+
 			}
 			
 			// process neighbors
@@ -413,8 +436,10 @@ void Application::semiKCore(){
 					v = nbr[i];
 					if(m_ub[v]>m_ub[u] && m_ub[v]<= originUb){
 						--cnt[v];
-						if(imGraph[v]->core == m_degree[v]){
-							printf("save 1 IO\n");
+						
+						if(imGraph[v]->core + imGraph[v]->discard == m_degree[v] && m_ub[v]!=m_lb[v]){
+							// printf("save 1 IO\n");
+							// waitVertices.push(v);
 							if(waitVertices.size() == 0){
 								waitVertices.push(v);
 								waitVertices.push(u+1);
@@ -473,38 +498,36 @@ void Application::loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyRead
 			currentEdges = 0;
 			imVertices.clear();
 		}
-
+		
 		// remember first edge of subgraph to prevent from overlapping
 		if(currentEdges == 0){
 			firstU = u;
 			firstV = nbr[i];
-		}
-
-		// check if edge(u,nbr[i]) is loaded
-		if(imGraph[u]->core != 0 && imGraph[nbr[i]] != 0){
-			Vertex* sd = imGraph[u]->core < imGraph[nbr[i]]->core ? imGraph[u]:imGraph[nbr[i]];
-			Vertex* bd = imGraph[u]->core > imGraph[nbr[i]]->core ? imGraph[u]:imGraph[nbr[i]];
-			if(find(sd->nbr.begin(),sd->nbr.end(),bd->core) != sd->nbr.end()){
-				continue;
-			}
+		}else if( u > firstU && nbr[i]>=firstU && nbr[i]<u){
+			// check if edge(u,nbr[i]) is loaded
+			continue;
+		}else if(u <= firstU && (nbr[i]<u || nbr[i] >= firstU) ){
+			continue;
 		}
 		
 		if(m_lb[u]>=m_ub[nbr[i]]){
-			if(imGraph[nbr[i]]->core == 0 && imGraph[nbr[i]]->deposit == 0){
+			if(imGraph[nbr[i]]->core == 0){
 				imVertices.push_back(nbr[i]);
 			}
-			++(imGraph[nbr[i]]->deposit);
+			++(imGraph[nbr[i]]->core);
+			++(imGraph[u]->discard);
 
 		}else if(m_ub[u]<=m_lb[nbr[i]]){
-			if(imGraph[u]->core == 0 && imGraph[u]->deposit == 0){
+			if(imGraph[u]->core == 0){
 				imVertices.push_back(u);
 			}
-			++(imGraph[u]->deposit);
+			++(imGraph[u]->core);
+			++(imGraph[nbr[i]]->discard);
 		}else{
-			if(imGraph[u]->core == 0 && imGraph[u]->deposit == 0){
+			if(imGraph[u]->core == 0){
 				imVertices.push_back(u);
 			}
-			if(imGraph[nbr[i]]->core == 0 && imGraph[nbr[i]]->deposit == 0){
+			if(imGraph[nbr[i]]->core == 0){
 				imVertices.push_back(nbr[i]);
 			}
 			// update vertex number
@@ -530,43 +553,56 @@ void Application::imKCore(Vertex** imGraph, Vertex** imCore, vector<int>& imVert
 		Vertex* u = imGraph[*it];
 		u->previous = NULL;
 		u->next = NULL;
-		if(m_lb[u] == m_ub[u]){
-			u->core = m_ub[u];
+
+		if(m_lb[u->id] == m_ub[u->id]){
+			// exact core number has been calculated
+			u->core = m_ub[u->id];
 		}
-		if(u->core + u->deposit > m_lb[u]){
-			no need deposit!!!!
+		
+		if(u->core < m_lb[u->id]){
+			u->core = m_lb[u->id];
 		}
-		if(imCore[u->core]){
-			imCore[u->core]->previous = u;
-			u->next = imCore[u->core];
+
+		int level = u->core > m_maxCore ? m_maxCore:u->core;
+		if(imCore[level]){
+			imCore[level]->previous = u;
+			u->next = imCore[level];
 		}
-		imCore[u->core] = u;
+		imCore[level] = u;
 	}
 
 
 	// calculate core
-	int core = 1;
+	printf("bottom-up processing\n");
+	
 	for (int i = 1; i <= m_maxCore; ++i){
-		while(imCore[i]){
-			Vertex* u = imCore[i];
-			// update lower bound
-			if(core>m_lb[u->id]){
-				printf("update_core[%d]:%d\n",u->id,core );
-				m_lb[u->id] = core;
-			}
 
+		while(imCore[i]){
+
+			Vertex* u = imCore[i];
+			if(i == 1){
+				printf("load vertex %d\n",u->id );
+			}
+			// update lower bound
+			if(i>m_lb[u->id]){
+				m_lb[u->id] = i;
+			}
+			
 			// remove vertex from doubly linked list
 			imCore[i] = u->next;
 			if(imCore[i]){
 				imCore[i]->previous = NULL;
 			}
-			
+
 
 			// delete induced edges
 			for (vector<int>::iterator it = u->nbr.begin(); it != u->nbr.end(); ++it){
 				Vertex* v = imGraph[*it];
 
 				v->nbr.erase(find(v->nbr.begin(),v->nbr.end(),u->id));
+				if(v->core == i){
+					continue;
+				}
 				int newCore = --(v->core);
 				if(newCore < m_maxCore){
 					// remove vertex from original doubly linked list
@@ -595,6 +631,9 @@ void Application::imKCore(Vertex** imGraph, Vertex** imCore, vector<int>& imVert
 			// clear the v->nbr, release memory
 			vector<int>().swap(u->nbr);
 			u->core = 0;
+			u->discard = 0;
+			u->next = NULL;
+			u->previous = NULL;
 
 		}
 	}
