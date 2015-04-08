@@ -6,8 +6,7 @@
 #include <cstring>
 #include <algorithm>
 #include <vector>
-#include <unordered_map>
-#include <unordered_set>
+#include <queue>
 
 #include "MyFile.h"
 
@@ -18,11 +17,14 @@ struct Edge{
 	int b;
 };
 
-struct Node{
-	int degree;
-	unordered_set<int> nbr;
+struct Vertex{
+	int id;
+	int core;
+	vector<int> nbr;
+	Vertex* next;
+	Vertex* previous;
+	short discard;
 };
-
 
 class Application{
 private:
@@ -32,19 +34,25 @@ private:
 	string m_info;
 	int m_m;
 	int m_maxDegree;
-	short* ub;
-	short* lb;
-	int m_maxEdges;
+	short* m_ub;
+	short* m_lb;
+
 	int m_maxID;
-	const static short m_maxCore = 30000;
+	short m_maxCore;
 	int* m_vertexMap;
+	int* m_degree;
+
+	long m_restEdges;
+
 	int getVertexID(int u,int& num);
 	void saveTmpEdges(Edge* edges,int size,int tmpFile);
 	bool static edgeCompare(const Edge &e0, const Edge &e1);
 	int min(Edge* es, int size);
 	bool mergeFinished(Edge* es, int size);
 	void merge(int size);
-	void loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat, unordered_map<int,Node*>& subgraph, int& currentEdges);
+	void loadNbr(int u, int* nbr, MyReadFile& fIdx, MyReadFile& fDat, long& currentEdges, Vertex** imGraph, Vertex** imCore, vector<int>& imVertices, int& firstU, int& firstV);
+
+	void imKCore(Vertex** imGraph, Vertex** imCore, vector<int>& imVertices);
 	
 public:
 	Application();
@@ -53,7 +61,6 @@ public:
 	void sortEdge(string txtFile);
 	void semiKCore();
 	void printCoreDistribution();
-	int imKCore(vector<vector<int>>& graph,short* lb);
 };
 
 #endif /* APPLICATION_H_ */
