@@ -50,7 +50,7 @@ private:
 	int min(Edge* es, int size);
 	bool mergeFinished(Edge* es, int size);
 	void merge(int size);
-	void loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat, long& currentEdges, Vertex** imGraph, Vertex** imCore, vector<int>& imVertices, int& firstU, int& firstV);
+	void loadNbr(int u, int* nbr, MyReadFile& fIdx, MyReadFile& fDat, long& currentEdges, Vertex** imGraph, Vertex** imCore, vector<int>& imVertices, int& firstU, int& firstV);
 
 	void imKCore(Vertex** imGraph, Vertex** imCore, vector<int>& imVertices);
 	
