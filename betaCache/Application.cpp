@@ -279,6 +279,23 @@ void Application::semiKCore(){
 	int* nbr = new int[m_maxDegree];
 	short* nbrCnt = new short[m_maxDegree];
 
+	// cache edges
+	m_cacheSize = 1000/sizeof(int)*1000*1000;
+	// m_cacheSize = 5000000;
+	m_cache = new int[m_cacheSize];
+
+	m_cacheIndex = new int[m_m+1];
+	m_cacheVertices = new bool[m_m+1];
+	memset(m_cacheVertices,0,sizeof(bool)*m_m);
+
+	m_cacheCur = 0;
+
+	m_cacheQueue = new int[m_m];
+	m_cacheQueue[0] = -1;
+	m_queueFirst = 0;
+	m_queueCur = 0;
+	m_degree = new int[m_m];
+
 	long t = clock();
 
 	// initialize array ub and cnt by degree and 0 respectively
@@ -292,14 +309,16 @@ void Application::semiKCore(){
 	}
 	memset(cnt,0,sizeof(short)*m_m);
 
-
+	queue<int> imVertices;
 	int degree;
 	int v;
 
+	
+
 	int iteration = 0;
 	
-	int memory = (sizeof(short)*m_m*2+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree)/1024/1024;
-	printf("Memory useage: %d MB\n",memory );
+	// int memory = (sizeof(short)*m_m*2+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree)/1000/1000;
+	// printf("Memory useage: %d MB\n",memory );
 	// if all vertexs satisfy: cnt number >= ub number, loop will terminate and we get final core number.
 	bool update = true;
 	while(update){
@@ -309,19 +328,45 @@ void Application::semiKCore(){
 		
 		for (int u = 0; u < m_m; ++u){
 			
+			
+			if(imVertices.size()>0){
+				u = imVertices.front();
+				imVertices.pop();
+
+			}
+
 			if(cnt[u]>=ub[u]){
 				continue;
 			}
-
+			bool inMemory = false;
+			if(m_cacheVertices[u]){
+				inMemory = true;
+			}
 			short originUb = ub[u];
 			// get neighbors of vertex i
-			loadNbr(u,nbr,degree,fIdx,fDat);
+			if(inMemory){
+				// degree = m_cacheIndex[u+1]>m_cacheIndex[u]?m_cacheIndex[u+1]-m_cacheIndex[u]:m_cacheSize-m_cacheIndex[u]+m_cacheIndex[u+1];
+				// if(m_degree[u]!=degree){
+				// 	printf("degree error,u=%d,idx=%d,u+1.idx=%d\n",u, m_cacheIndex[u],m_cacheIndex[u+1]);
+				// }
+				degree = m_degree[u];
+			}else{
+				loadNbr(u,nbr,degree,fIdx,fDat);
+			}
 			
-
+			
 			// get the core distribution for neighbors' contribution
 			memset(nbrCnt,0,sizeof(short)*(originUb+1));
+		
 			for (int j = 0; j < degree; ++j){
-				v = nbr[j];
+				if(inMemory){
+					
+					int curIdx = m_cacheIndex[u]+j >= m_cacheSize ? m_cacheIndex[u]+j-m_cacheSize:m_cacheIndex[u]+j;
+					v = m_cache[curIdx];
+				}else{
+					v = nbr[j];
+				}
+				
 				++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
 			}
 
@@ -339,9 +384,25 @@ void Application::semiKCore(){
 			if(ub[u]<originUb){
 				update = true;
 				for (int i = 0; i < degree; ++i){
-					v = nbr[i];
+					if(inMemory){
+						int curIdx = m_cacheIndex[u]+i >= m_cacheSize ? m_cacheIndex[u]+i-m_cacheSize:m_cacheIndex[u]+i;
+						v = m_cache[curIdx];
+					}else{
+						v = nbr[i];
+					}
 					if(ub[v]>ub[u] && ub[v]<= originUb){
 						--cnt[v];
+
+						if(cnt[v]<ub[v] && m_cacheVertices[v] && iteration>1){
+							if(imVertices.size()==0){
+								imVertices.push(v);
+								imVertices.push(u+1);
+							}else{
+								int nextV = imVertices.back();
+								imVertices.back() = v;
+								imVertices.push(nextV);
+							}
+						}
 					}
 				}
 			}
@@ -352,7 +413,7 @@ void Application::semiKCore(){
 	
 	t = clock() - t;
 	printf( "processing time = %0.3lf sec\n", t/1000000.0 );
-	printf("Memory useage: %d MB\n",memory );
+	// printf("Memory useage: %d MB\n",memory );
 	
 	
 	
@@ -360,6 +421,12 @@ void Application::semiKCore(){
 	delete[] nbr;
 	delete[] cnt;
 	
+	delete[] m_cacheVertices;
+	delete[] m_cacheIndex;
+	delete[] m_cache;
+	delete[] m_cacheQueue;
+
+	delete[] m_degree;
 	
 	fDat.fclose();
 	fIdx.fclose();
@@ -376,9 +443,42 @@ void Application::loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyRead
 	fIdx.fread(&degree,sizeof(int));
 
 	fDat.fseek(pos);
-	
+	m_degree[u] = degree;
 	// load all neighbors of vertex u
-	fDat.fread(nbr,sizeof(int)*degree);
+	// fDat.fread(nbr,sizeof(int)*degree);
+	
+	m_cacheIndex[u] = m_cacheCur;
+
+	
+
+	for (int i = 0; i < degree; ++i){
+		fDat.fread(&nbr[i],sizeof(int));
+		int firstVertex = m_cacheQueue[m_queueFirst];
+		if(m_cacheQueue[0]!=-1 && m_cacheCur == m_cacheIndex[firstVertex]){
+			m_cacheVertices[firstVertex] = false;
+			if(++m_queueFirst >= m_m){
+				m_queueFirst = 0;
+			}
+
+		}
+
+
+		m_cache[m_cacheCur++] = nbr[i];
+		
+		if(m_cacheCur>=m_cacheSize){
+			m_cacheCur = 0;
+		}
+	}
+
+	m_cacheQueue[m_queueCur++] = u;
+	if(m_queueCur>=m_m){
+		m_queueCur = 0;
+	}
+	
+	m_cacheVertices[u] = true;
+	// m_cacheIndex[u+1] = m_cacheCur;
+	//printf("vertex[%d].idx=%d,firstVertex[%d].idx=%d\n",u,m_cacheIndex[u],m_cacheQueue[m_queueFirst],m_cacheIndex[m_cacheQueue[m_queueFirst]] );
+
 
 }
 
@@ -386,9 +486,13 @@ void Application::printCoreDistribution(){
 	int* core = new int[m_maxDegree];
 	memset(core,0,sizeof(int)*m_maxDegree);
 	int maxCore = 0;
+	int x = 0;
 	for (int i = 0; i < m_m; ++i){
 		++core[ub[i]];
 		maxCore = ub[i]>maxCore?ub[i]:maxCore;
+		if(ub[i]==maxCore){
+			x = i;
+		}
 	}
 
 	// printf("core[1]: %d\n",core[1]);
