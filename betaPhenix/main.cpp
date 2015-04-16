@@ -9,9 +9,9 @@ int main(){
 	
 	Application* app = new Application("/Users/dongwen/workspace/Hummingbird/");
 
-	// app->sortEdge("/Users/dongwen/workspace/Hummingbird/dataset/uk-2002.txt");
-	app->semiKCore();
-	app->printCoreDistribution();
+	app->sortEdge("/Users/dongwen/workspace/Hummingbird/dataset/uk-2002.txt");
+	// app->semiKCore();
+	// app->printCoreDistribution();
 
 	return 0;
 }

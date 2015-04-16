@@ -323,7 +323,7 @@ void Application::semiKCore(){
 
 			// get the core distribution for neighbors' contribution
 			memset(nbrCnt,0,sizeof(short)*(originUb+1));
-			if(nextCnt[u] && nextCnt[u]>=ub[u]-1 ){
+			if(nextCnt[u] && nextCnt[u]>=originUb-1 ){
 				--ub[u];
 				cnt[u] = nextCnt[u];
 				nextCnt[u] = 0;
@@ -355,9 +355,10 @@ void Application::semiKCore(){
 					if(ub[v]>ub[u] && ub[v]<= originUb){
 						--cnt[v];
 					}
-					if(ub[u]<ub[v]-1 && nextCnt[v]){
+					if(ub[u]<ub[v]-1 && ub[v]-1<= originUb && nextCnt[v]){
 						--nextCnt[v];
 					}
+
 				}
 			}
 			// if(iteration > 10 && originUb-ub[u]>1){

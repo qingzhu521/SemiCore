@@ -22,18 +22,23 @@ private:
 	string m_dat;
 	string m_base;
 	string m_info;
-	int m_n;
+	int m_m;
 	int m_maxDegree;
 	short* ub;
 
 	int* m_degree;
 
-	int* m_cacheIndex;
+	int m_cacheFirst;
+	int m_cacheLast;
 	int* m_cache;
+	int* m_cacheIndex;
+	bool* m_cacheVertices;
 	int m_cacheSize;
-	int m_cacheFront;
-	int m_cacheBack;
 	int m_cacheCur;
+
+	int* m_cacheQueue;
+	int m_queueFirst;
+	int m_queueCur;
 
 	int m_maxID;
 	const static short m_maxCore = 30000;
