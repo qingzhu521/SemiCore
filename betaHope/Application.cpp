@@ -335,7 +335,6 @@ void Application::semiKCore(){
 					rangeU = range[u>>1] >> 4;
 				}
 			
-				
 				for (int j = 0; j < degree; ++j){
 					v = nbr[j];
 					
