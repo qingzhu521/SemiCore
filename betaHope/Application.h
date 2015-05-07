@@ -21,7 +21,7 @@ private:
 	string m_dat;
 	string m_base;
 	string m_info;
-	int m_m;
+	int m_n;
 	int m_maxDegree;
 	short* ub;
 

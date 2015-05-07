@@ -261,9 +261,9 @@ void Application::semiKCore(){
 	
 	fInfo.fread(&m_maxDegree,sizeof(int));
 	printf("max degree: %d\n",m_maxDegree );
-	
 	fInfo.fclose();
 	
+	long t = clock();
 	
 	MyReadFile fIdx( m_idx );
 	fIdx.fopen( BUFFERED );
@@ -279,7 +279,6 @@ void Application::semiKCore(){
 	int* nbr = new int[m_maxDegree];
 	short* nbrCnt = new short[m_maxDegree];
 
-	long t = clock();
 
 	// initialize array ub and cnt by degree and 0 respectively
 	long tmp;
@@ -308,7 +307,7 @@ void Application::semiKCore(){
 
 		
 		for (int u = 0; u < m_m; ++u){
-			
+
 			if(cnt[u]>=ub[u]){
 				continue;
 			}
@@ -335,6 +334,7 @@ void Application::semiKCore(){
 					break;
 				}
 			}
+			
 			// process neighbors
 			if(ub[u]<originUb){
 				update = true;
@@ -348,6 +348,7 @@ void Application::semiKCore(){
 			
 			
 		}
+
 	}
 	
 	t = clock() - t;

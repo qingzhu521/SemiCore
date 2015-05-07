@@ -257,40 +257,42 @@ void Application::semiKCore(){
 	fInfo.fopen( BUFFERED );
 	
 	// initialize verterx number: n
-	fInfo.fread(&m_m,sizeof(int));
+	fInfo.fread(&m_n,sizeof(int));
 	
 	fInfo.fread(&m_maxDegree,sizeof(int));
 	printf("max degree: %d\n",m_maxDegree );
 	
 	fInfo.fclose();
 	
-	
+	long t = clock();
 	MyReadFile fIdx( m_idx );
 	fIdx.fopen( BUFFERED );
 	MyReadFile fDat( m_dat );
 	fDat.fopen( BUFFERED );
 
 	// array for saving upper bound of vertex core number, array will update iteratively
-	ub = new short[m_m];
+	ub = new short[m_n];
 	// array for saving count number of vertex
-	short* cnt = new short[m_m];
+	short* cnt = new short[m_n];
 
 	// array for loading every
 	int* nbr = new int[m_maxDegree];
 	short* nbrCnt = new short[m_maxDegree];
 
-	long t = clock();
+	int x = (m_n+1)/2;
+	unsigned char* range = new unsigned char[x];
+	// memset(range,0,sizeof(char)*x);
 
 	// initialize array ub and cnt by degree and 0 respectively
 	long tmp;
 	int degreeTmp;
-	for (int i = 0; i < m_m; ++i){
+	for (int i = 0; i < m_n; ++i){
 		fIdx.fread(&tmp,sizeof(long));
 
 		fIdx.fread(&degreeTmp,sizeof(int));
 		ub[i] = degreeTmp>m_maxCore?m_maxCore:degreeTmp;
 	}
-	memset(cnt,0,sizeof(short)*m_m);
+	memset(cnt,0,sizeof(short)*m_n);
 
 
 	int degree;
@@ -298,7 +300,7 @@ void Application::semiKCore(){
 
 	int iteration = 0;
 	
-	int memory = (sizeof(short)*m_m*2+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree)/1024/1024;
+	int memory = (sizeof(short)*m_n*2+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree)/1024/1024;
 	printf("Memory useage: %d MB\n",memory );
 	// if all vertexs satisfy: cnt number >= ub number, loop will terminate and we get final core number.
 	bool update = true;
@@ -307,8 +309,8 @@ void Application::semiKCore(){
 		printf("iteration: %d\n",++iteration );
 
 		
-		for (int u = 0; u < m_m; ++u){
-			
+		for (int u = 0; u < m_n; ++u){
+		
 			if(cnt[u]>=ub[u]){
 				continue;
 			}
@@ -317,13 +319,43 @@ void Application::semiKCore(){
 			// get neighbors of vertex i
 			loadNbr(u,nbr,degree,fIdx,fDat);
 			
-
 			// get the core distribution for neighbors' contribution
 			memset(nbrCnt,0,sizeof(short)*(originUb+1));
-			for (int j = 0; j < degree; ++j){
-				v = nbr[j];
-				++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
+			unsigned char rangeU;
+			if(iteration == 1){
+				for (int j = 0; j < degree; ++j){
+					v = nbr[j];
+					++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
+				}
+			}else{
+			
+				if((u&1) == 1){
+					rangeU = range[u>>1] & 15;
+				}else{
+					rangeU = range[u>>1] >> 4;
+				}
+			
+				
+				for (int j = 0; j < degree; ++j){
+					v = nbr[j];
+					
+					unsigned char rangeV;
+					if((v&1) == 1){
+						rangeV = range[v>>1] & 15;
+					}else{
+						rangeV = range[v>>1] >> 4;
+					}
+					
+					if(rangeV > rangeU){
+						++nbrCnt[ub[u]];
+						nbr[j] = -1;
+					}else{
+						++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
+					}
+					
+				}
 			}
+			
 
 
 			// calculate new ub and new cnt
@@ -335,19 +367,48 @@ void Application::semiKCore(){
 					break;
 				}
 			}
+
+			
 			// process neighbors
 			if(ub[u]<originUb){
 				update = true;
 				for (int i = 0; i < degree; ++i){
 					v = nbr[i];
+					if(v == -1){
+						continue;
+					}
 					if(ub[v]>ub[u] && ub[v]<= originUb){
 						--cnt[v];
 					}
 				}
 			}
+			if(iteration == 1){
+				int tmpUB = ub[u];
+				unsigned char l = 0;
+				while(tmpUB != 1){
+					tmpUB = tmpUB>>1;
+					++l;
+				}
+				if((u&1) == 1){
+					range[u>>1] =  range[u>>1]|l;
+				}else{
+					range[u>>1] = l << 4;
+				}
+
+			}else if(ub[u] < (1<<rangeU)){
+				while(ub[u] < (1<<rangeU)){
+					--rangeU;	
+				}
+				if((u&1) == 1){
+					range[u>>1] = (range[u>>1]&240)|rangeU;
+				}else{
+					range[u>>1] = (range[u>>1]&15)|(rangeU<<4);
+				}
+			}
 			
 			
 		}
+
 	}
 	
 	t = clock() - t;
@@ -359,7 +420,7 @@ void Application::semiKCore(){
 	delete[] nbrCnt;
 	delete[] nbr;
 	delete[] cnt;
-	
+	delete[] range;
 	
 	fDat.fclose();
 	fIdx.fclose();
@@ -386,7 +447,7 @@ void Application::printCoreDistribution(){
 	int* core = new int[m_maxDegree];
 	memset(core,0,sizeof(int)*m_maxDegree);
 	int maxCore = 0;
-	for (int i = 0; i < m_m; ++i){
+	for (int i = 0; i < m_n; ++i){
 		++core[ub[i]];
 		maxCore = ub[i]>maxCore?ub[i]:maxCore;
 	}
