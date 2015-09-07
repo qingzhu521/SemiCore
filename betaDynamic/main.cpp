@@ -12,6 +12,8 @@ int main(){
 	//app->sortEdge("/Users/dongwen/workspace/Hummingbird/dataset/enron.txt");
 	
 	app->semiKCore();
+
+	
 	app->printCoreDistribution();
 
 	return 0;
