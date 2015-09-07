@@ -408,7 +408,7 @@ void Application::printCoreDistribution(){
 
 }
 
-void Application::addEdge(int u, int v){
+void Application::addEdge(int a, int b){
 
 	MyReadFile fIdx( m_idx );
 	fIdx.fopen( BUFFERED );
@@ -418,6 +418,7 @@ void Application::addEdge(int u, int v){
 	int* nbr = new int[m_maxDegree];
 	int degree;
 
+	short* cntPlus = new short[m_m];
 	bool* active = new bool[m_m];
 	bool* visited = new bool[m_m];
 	bool* update = new bool[m_m];
@@ -426,19 +427,77 @@ void Application::addEdge(int u, int v){
 	memset(active,false,m_m);
 
 
-	if(ub[u] == ub[v]){
-		++cnt[u];
-		++cnt[v];
-		active[v] = true;
+	if(ub[a] == ub[b]){
+		++cnt[a];
+		++cnt[b];
+		active[b] = true;
 	}
 
-	int root = ub[u] > ub[v] ? v : u;
+	int root = ub[a] > ub[b] ? b : a;
 	active[root] = true;
 
-	
+	bool flag = true;
+	while(flag){
+		flag = false;
 
-	
+		for(int u = 0; u < m_m; ++u){
+			if(!active[u]){
+				continue;
+			}
 
+			active[u] = false;
+
+			loadNbr(u,nbr,degree,fIdx,fDat);
+
+			// visited[u] == true && active[u] == true means u is not qualified
+			if(visited[u] == false){
+				// calculate cntPlus
+				cntPlus[u] = 0;
+
+				for(int i = 0; i < degree, ++i){
+					v = nbr[i];
+					if(ub[v] > ub[u] || (ub[v] == ub[u] && cnt[v] > ub[v])){
+						++cntPlus[u];
+					}
+
+				}
+				visited[u] = true;
+			}
+			
+
+			flag = true;
+			if(cntPlus[u] > ub[u]){
+				
+				update[u] = true;
+				// mark neighbors to be detected next
+				for(int i = 0; i < degree, ++i){
+					v = nbr[i];
+					if(ub[v] == ub[u] && active[v] == false && visited[v] == false && cnt[v] > ub[v]){
+						active[v] = true;
+					}
+
+				}
+			}else{
+				update[u] = false;
+				// calculate influence on neighbors
+				for(int i = 0; i < degree, ++i){
+					v = nbr[i];
+					if(ub[v] == ub[u] && active[v] == false && visited[v] == true && update[v] = true){
+						if(--cntPlus[v] <= ub[v]){
+
+							active[v] = true;
+							update[v] = false;
+						}
+					}
+
+				}
+			}
+
+
+
+		}
+
+	}
 
 
 
@@ -447,6 +506,7 @@ void Application::addEdge(int u, int v){
 	delete[] active;
 	delete[] visited;
 	delete[] update;
+	delete[] cntPlus;
 	delete[] nbr;
 
 	fDat.fclose();

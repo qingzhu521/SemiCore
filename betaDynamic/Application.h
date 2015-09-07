@@ -38,8 +38,8 @@ private:
 	void loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
 	
 
-	void addEdge(int u, int v);
-	void removeEdge(int u, int v);
+	void addEdge(int a, int b);
+	void removeEdge(int a, int b);
 public:
 	Application();
 	Application(string base);
