@@ -362,7 +362,6 @@ void Application::semiKCore(){
 	
 	delete[] nbrCnt;
 	delete[] nbr;
-	delete[] cnt;
 	
 	
 	fDat.fclose();
@@ -499,7 +498,22 @@ void Application::addEdge(int a, int b){
 
 	}
 
+	for(int u = 0; u < m_m; ++u){
+		if(!update[u]){
+			continue;
+		}
+		++ub[u];
 
+		cnt[u] = 0;
+		loadNbr(u,nbr,degree,fIdx,fDat);
+		for(int i = 0; i<degree;++i){
+			int v = nbr[i];
+			if(ub[v]>=ub[u] || update[v]){
+				++cnt[u];
+			}
+		}
+		update[u] = false;
+	}
 
 	
 
@@ -508,6 +522,92 @@ void Application::addEdge(int a, int b){
 	delete[] update;
 	delete[] cntPlus;
 	delete[] nbr;
+
+	fDat.fclose();
+	fIdx.fclose();
+}
+
+void Application::removeEdge(int a, int b){
+	if(ub[a] == ub[b]){
+		--cnt[a];
+		--cnt[b];
+		if(cnt[a]>=ub[a] && cnt[b]>=ub[b]){
+			return;
+		}
+	}else{
+		int root = ub[a] > ub[b] ? b : a;
+		--cnt[root];
+		if(cnt[root]>=ub[root]){
+			return;
+		}
+	}
+	
+
+
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+
+	int* nbr = new int[m_maxDegree];
+	int degree;
+	short* nbrCnt = new short[m_maxDegree];
+
+	
+
+	bool update = true;
+	while(update){
+		update = false;
+		printf("iteration: %d\n",++iteration );
+
+		
+		for (int u = 0; u < m_m; ++u){
+
+			if(cnt[u]>=ub[u]){
+				continue;
+			}
+
+			short originUb = ub[u];
+			// get neighbors of vertex i
+			loadNbr(u,nbr,degree,fIdx,fDat);
+			
+
+			// get the core distribution for neighbors' contribution
+			memset(nbrCnt,0,sizeof(short)*(originUb+1));
+			for (int j = 0; j < degree; ++j){
+				v = nbr[j];
+				++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
+			}
+
+
+			// calculate new ub and new cnt
+			cnt[u] = 0;
+			for (int i = originUb; i > 0; --i){
+				cnt[u] += nbrCnt[i];
+				if(cnt[u] >= i){
+					ub[u] = i;
+					break;
+				}
+			}
+			
+			// process neighbors
+			if(ub[u]<originUb){
+				update = true;
+				for (int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(ub[v]>ub[u] && ub[v]<= originUb){
+						--cnt[v];
+					}
+				}
+			}
+			
+			
+		}
+
+	}
+	
+	delete[] nbr;
+	delete[] nbrCnt;
 
 	fDat.fclose();
 	fIdx.fclose();
