@@ -405,6 +405,9 @@ void Application::printCoreDistribution(){
 
 	delete[] core;
 
+	printf("ub[0] = %d\n",ub[0] );
+	printf("ub[1] = %d\n",ub[1] );
+
 }
 
 void Application::addEdge(int a, int b){
@@ -435,6 +438,7 @@ void Application::addEdge(int a, int b){
 	int root = ub[a] > ub[b] ? b : a;
 	active[root] = true;
 
+	printf("root == %d\n",root );
 	bool flag = true;
 	while(flag){
 		flag = false;
@@ -443,17 +447,21 @@ void Application::addEdge(int a, int b){
 			if(!active[u]){
 				continue;
 			}
-
+			printf("vertex %d active:\n", u);
 			active[u] = false;
+			
+			// !!!
+			// new edge is not saved in disk
+
 
 			loadNbr(u,nbr,degree,fIdx,fDat);
-
+			int v;
 			// visited[u] == true && active[u] == true means u is not qualified
 			if(visited[u] == false){
 				// calculate cntPlus
 				cntPlus[u] = 0;
 
-				for(int i = 0; i < degree, ++i){
+				for(int i = 0; i < degree; ++i){
 					v = nbr[i];
 					if(ub[v] > ub[u] || (ub[v] == ub[u] && cnt[v] > ub[v])){
 						++cntPlus[u];
@@ -463,25 +471,26 @@ void Application::addEdge(int a, int b){
 				visited[u] = true;
 			}
 			
-
+			printf("cntPlus = %d\n",cntPlus[u] );
 			flag = true;
 			if(cntPlus[u] > ub[u]){
 				
 				update[u] = true;
 				// mark neighbors to be detected next
-				for(int i = 0; i < degree, ++i){
+				for(int i = 0; i < degree; ++i){
 					v = nbr[i];
 					if(ub[v] == ub[u] && active[v] == false && visited[v] == false && cnt[v] > ub[v]){
 						active[v] = true;
 					}
 
 				}
+				printf("vertex %d update\n",u );
 			}else{
 				update[u] = false;
 				// calculate influence on neighbors
-				for(int i = 0; i < degree, ++i){
+				for(int i = 0; i < degree; ++i){
 					v = nbr[i];
-					if(ub[v] == ub[u] && active[v] == false && visited[v] == true && update[v] = true){
+					if(ub[v] == ub[u] && active[v] == false && visited[v] == true && update[v] == true){
 						if(--cntPlus[v] <= ub[v]){
 
 							active[v] = true;
@@ -558,7 +567,6 @@ void Application::removeEdge(int a, int b){
 	bool update = true;
 	while(update){
 		update = false;
-		printf("iteration: %d\n",++iteration );
 
 		
 		for (int u = 0; u < m_m; ++u){
@@ -571,7 +579,7 @@ void Application::removeEdge(int a, int b){
 			// get neighbors of vertex i
 			loadNbr(u,nbr,degree,fIdx,fDat);
 			
-
+			int v;
 			// get the core distribution for neighbors' contribution
 			memset(nbrCnt,0,sizeof(short)*(originUb+1));
 			for (int j = 0; j < degree; ++j){

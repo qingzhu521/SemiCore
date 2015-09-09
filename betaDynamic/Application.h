@@ -37,9 +37,6 @@ private:
 	void merge(int size);
 	void loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
 	
-
-	void addEdge(int a, int b);
-	void removeEdge(int a, int b);
 public:
 	Application();
 	Application(string base);
@@ -47,6 +44,8 @@ public:
 	void sortEdge(string txtFile);
 	void semiKCore();
 	void printCoreDistribution();
+	void addEdge(int a, int b);
+	void removeEdge(int a, int b);
 };
 
 #endif /* APPLICATION_H_ */
