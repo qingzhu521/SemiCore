@@ -14,6 +14,9 @@ Application::~Application(){
 	if(ub!=NULL){
 		delete[] ub;
 	}
+	if(cnt!=NULL){
+		delete[] cnt;
+	}
 }
 
 void Application::sortEdge(string txtFile){
@@ -255,15 +258,17 @@ void Application::semiKCore(){
 	
 	MyReadFile fInfo( m_info );
 	fInfo.fopen( BUFFERED );
-	
 	// initialize verterx number: n
 	fInfo.fread(&m_m,sizeof(int));
-	
 	fInfo.fread(&m_maxDegree,sizeof(int));
-	printf("max degree: %d\n",m_maxDegree );
+	printf("Number of vertices: %d, max degree: %d\n",m_m, m_maxDegree );
 	fInfo.fclose();
 	
 	long t = clock();
+
+	struct timeval start,finish;
+	gettimeofday(&start,NULL);
+	double totaltime = 0.0;
 	
 	MyReadFile fIdx( m_idx );
 	fIdx.fopen( BUFFERED );
@@ -273,7 +278,7 @@ void Application::semiKCore(){
 	// array for saving upper bound of vertex core number, array will update iteratively
 	ub = new short[m_m];
 	// array for saving count number of vertex
-	short* cnt = new short[m_m];
+	cnt = new short[m_m];
 
 	// array for loading every
 	int* nbr = new int[m_maxDegree];
@@ -294,12 +299,12 @@ void Application::semiKCore(){
 
 	int degree;
 	int v;
-
 	int iteration = 0;
 	
-	int memory = (sizeof(short)*m_m*2+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree)/1024/1024;
-	printf("Memory useage: %d MB\n",memory );
-	// if all vertexs satisfy: cnt number >= ub number, loop will terminate and we get final core number.
+	double memory = (sizeof(short)*m_m*2+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree)/1024;
+	printf("Memory useage: %.3f KB, %.3f MB\n",memory,memory/1024 );
+
+	
 	bool update = true;
 	while(update){
 		update = false;
@@ -352,15 +357,16 @@ void Application::semiKCore(){
 	}
 	
 	t = clock() - t;
-	printf( "processing time = %0.3lf sec\n", t/1000000.0 );
-	printf("Memory useage: %d MB\n",memory );
+	printf( "Total processing time = %.3lf sec (by clock() function)\n", t/1000000.0 );
 	
-	
+	gettimeofday(&finish,NULL);
+	totaltime = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
+	printf("Total processing time = %.3f sec (by gettimeofday() function)\n",totaltime);
+
+	printf("Memory useage: %.3f KB, %.3f MB\n",memory,memory/1024 );
 	
 	delete[] nbrCnt;
 	delete[] nbr;
-	delete[] cnt;
-	
 	
 	fDat.fclose();
 	fIdx.fclose();
@@ -403,6 +409,218 @@ void Application::printCoreDistribution(){
 
 	delete[] core;
 
+	printf("ub[0] = %d\n",ub[0] );
+	printf("ub[1] = %d\n",ub[1] );
+
+}
+
+void Application::addEdge(int a, int b){
+
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+
+	int* nbr = new int[m_maxDegree];
+	int degree;
+
+	short* cntPlus = new short[m_m];
+	bool* active = new bool[m_m];
+	bool* visited = new bool[m_m];
+	bool* update = new bool[m_m];
+	memset(active,false,m_m);
+	memset(active,false,m_m);
+	memset(active,false,m_m);
+
+
+	if(ub[a] == ub[b]){
+		++cnt[a];
+		++cnt[b];
+		active[b] = true;
+	}
+
+	int root = ub[a] > ub[b] ? b : a;
+	active[root] = true;
+
+	printf("root == %d\n",root );
+	bool flag = true;
+	while(flag){
+		flag = false;
+
+		for(int u = 0; u < m_m; ++u){
+			if(!active[u]){
+				continue;
+			}
+			printf("vertex %d active:\n", u);
+			active[u] = false;
+			
+			// !!!
+			// new edge is not saved in disk
+
+
+			loadNbr(u,nbr,degree,fIdx,fDat);
+			int v;
+			// visited[u] == true && active[u] == true means u is not qualified
+			if(visited[u] == false){
+				// calculate cntPlus
+				cntPlus[u] = 0;
+
+				for(int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(ub[v] > ub[u] || (ub[v] == ub[u] && cnt[v] > ub[v])){
+						++cntPlus[u];
+					}
+
+				}
+				visited[u] = true;
+			}
+			
+			printf("cntPlus = %d\n",cntPlus[u] );
+			flag = true;
+			if(cntPlus[u] > ub[u]){
+				
+				update[u] = true;
+				// mark neighbors to be detected next
+				for(int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(ub[v] == ub[u] && active[v] == false && visited[v] == false && cnt[v] > ub[v]){
+						active[v] = true;
+					}
+
+				}
+				printf("vertex %d update\n",u );
+			}else{
+				update[u] = false;
+				// calculate influence on neighbors
+				for(int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(ub[v] == ub[u] && active[v] == false && visited[v] == true && update[v] == true){
+						if(--cntPlus[v] <= ub[v]){
+
+							active[v] = true;
+							update[v] = false;
+						}
+					}
+
+				}
+			}
+
+
+
+		}
+
+	}
+
+	for(int u = 0; u < m_m; ++u){
+		if(!update[u]){
+			continue;
+		}
+		++ub[u];
+
+		cnt[u] = 0;
+		loadNbr(u,nbr,degree,fIdx,fDat);
+		for(int i = 0; i<degree;++i){
+			int v = nbr[i];
+			if(ub[v]>=ub[u] || update[v]){
+				++cnt[u];
+			}
+		}
+		update[u] = false;
+	}
 
 	
+
+	delete[] active;
+	delete[] visited;
+	delete[] update;
+	delete[] cntPlus;
+	delete[] nbr;
+
+	fDat.fclose();
+	fIdx.fclose();
+}
+
+void Application::removeEdge(int a, int b){
+	if(ub[a] == ub[b]){
+		--cnt[a];
+		--cnt[b];
+		if(cnt[a]>=ub[a] && cnt[b]>=ub[b]){
+			return;
+		}
+	}else{
+		int root = ub[a] > ub[b] ? b : a;
+		--cnt[root];
+		if(cnt[root]>=ub[root]){
+			return;
+		}
+	}
+	
+
+
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+
+	int* nbr = new int[m_maxDegree];
+	int degree;
+	short* nbrCnt = new short[m_maxDegree];
+
+	
+
+	bool update = true;
+	while(update){
+		update = false;
+
+		
+		for (int u = 0; u < m_m; ++u){
+
+			if(cnt[u]>=ub[u]){
+				continue;
+			}
+
+			short originUb = ub[u];
+			// get neighbors of vertex i
+			loadNbr(u,nbr,degree,fIdx,fDat);
+			
+			int v;
+			// get the core distribution for neighbors' contribution
+			memset(nbrCnt,0,sizeof(short)*(originUb+1));
+			for (int j = 0; j < degree; ++j){
+				v = nbr[j];
+				++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
+			}
+
+
+			// calculate new ub and new cnt
+			cnt[u] = 0;
+			for (int i = originUb; i > 0; --i){
+				cnt[u] += nbrCnt[i];
+				if(cnt[u] >= i){
+					ub[u] = i;
+					break;
+				}
+			}
+			
+			// process neighbors
+			if(ub[u]<originUb){
+				update = true;
+				for (int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(ub[v]>ub[u] && ub[v]<= originUb){
+						--cnt[v];
+					}
+				}
+			}
+			
+			
+		}
+
+	}
+	
+	delete[] nbr;
+	delete[] nbrCnt;
+
+	fDat.fclose();
+	fIdx.fclose();
 }

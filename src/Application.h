@@ -24,6 +24,7 @@ private:
 	int m_m;
 	int m_maxDegree;
 	short* ub;
+	short* cnt;
 
 	int m_maxID;
 	const static short m_maxCore = 30000;
@@ -43,6 +44,8 @@ public:
 	void sortEdge(string txtFile);
 	void semiKCore();
 	void printCoreDistribution();
+	void addEdge(int a, int b);
+	void removeEdge(int a, int b);
 };
 
 #endif /* APPLICATION_H_ */
