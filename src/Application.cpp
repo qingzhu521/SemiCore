@@ -6,6 +6,9 @@ Application::Application(string base){
 	m_idx = base+"graph.idx";
 	m_info = base+"graph.info";
 	m_maxID = 1000000000;
+	m_dynamic = NULL;
+	ub = NULL;
+	cnt = NULL;
 }
 Application::Application(){
 
@@ -16,6 +19,14 @@ Application::~Application(){
 	}
 	if(cnt!=NULL){
 		delete[] cnt;
+	}
+	if(m_dynamic != NULL){
+		for(int i = 0;i<m_m;++i){
+			if(m_dynamic[i]){
+				delete m_dynamic[i];
+			}
+		}
+		delete[] m_dynamic;
 	}
 }
 
@@ -356,15 +367,18 @@ void Application::semiKCore(){
 
 	}
 	
-	t = clock() - t;
-	printf( "Total processing time = %.3lf sec (by clock() function)\n", t/1000000.0 );
-	
 	gettimeofday(&finish,NULL);
 	totaltime = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
-	printf("Total processing time = %.3f sec (by gettimeofday() function)\n",totaltime);
+	t = clock() - t;
 
-	printf("Memory useage: %.3f KB, %.3f MB\n",memory,memory/1024 );
+	printf("Total processing time = %.3f sec (by gettimeofday() function)\n",totaltime);
+	printf( "Total processing time = %.3lf sec (by clock() function)\n", t/1000000.0 );
 	
+	
+	printf("Memory useage: %.3f KB, %.3f MB\n",memory,memory/1024 );
+	printf("I/O number: %ld (.dat file), %ld (.idx file) \n",fDat.get_total_io(),fIdx.get_total_io());
+	printf("Number of vertices: %d, max degree: %d\n",m_m, m_maxDegree );
+
 	delete[] nbrCnt;
 	delete[] nbr;
 	
@@ -398,23 +412,44 @@ void Application::printCoreDistribution(){
 		maxCore = ub[i]>maxCore?ub[i]:maxCore;
 	}
 
-	// printf("core[1]: %d\n",core[1]);
-	// printf("core[%d]: %d\n",maxCore,core[maxCore] );
-	for (int i = 0; i <= maxCore; ++i){
-		if(core[i]>0){
-			printf("core %d: %d\n",i,core[i] );
-		}
+	printf("1-core: %d, %d-core: %d\n",core[1],maxCore,core[maxCore]);
+
+	// for (int i = 0; i <= maxCore; ++i){
+	// 	if(core[i]>0){
+	// 		printf("core %d: %d\n",i,core[i] );
+	// 	}
 		
-	}
+	// }
 
 	delete[] core;
 
-	printf("ub[0] = %d\n",ub[0] );
-	printf("ub[1] = %d\n",ub[1] );
-
 }
 
+bool Application::loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat){
+	
+}
 void Application::addEdge(int a, int b){
+
+	// buffer edge
+	if(m_dynamic && m_dynamic[a] && m_dynamic[a]->find(b)!=m_dynamic[a]->end()){
+		printf("edge already exists in buffer\n");
+		return;
+	}
+
+	if(!m_dynamic){
+		m_dynamic = new unordered_set<int>*[m_m];
+		memset(m_dynamic, NULL, sizeof(unordered_set<int>*)*m_m);
+	}
+	if(!m_dynamic[a]){
+		m_dynamic[a] = new unordered_set<int>;
+	}
+	if(!m_dynamic[b]){
+		m_dynamic[b] = new unordered_set<int>;
+	}
+	m_dynamic[a]->insert(b);
+	m_dynamic[b]->insert(a);
+
+
 
 	MyReadFile fIdx( m_idx );
 	fIdx.fopen( BUFFERED );
@@ -425,18 +460,17 @@ void Application::addEdge(int a, int b){
 	int degree;
 
 	short* cntPlus = new short[m_m];
-	bool* active = new bool[m_m];
-	bool* visited = new bool[m_m];
-	bool* update = new bool[m_m];
-	memset(active,false,m_m);
-	memset(active,false,m_m);
-	memset(active,false,m_m);
+	bool* x = new bool[m_m];
+	bool* y = new bool[m_m];
+	memset(x,false,m_m);
+	memset(y,false,m_m);
+
 
 
 	if(ub[a] == ub[b]){
 		++cnt[a];
 		++cnt[b];
-		active[b] = true;
+		// active[b] = true;
 	}
 
 	int root = ub[a] > ub[b] ? b : a;
@@ -447,67 +481,69 @@ void Application::addEdge(int a, int b){
 	while(flag){
 		flag = false;
 
-		for(int u = 0; u < m_m; ++u){
-			if(!active[u]){
-				continue;
-			}
-			printf("vertex %d active:\n", u);
-			active[u] = false;
+		// for(int u = 0; u < m_m; ++u){
+		// 	if(!active[u]){
+		// 		continue;
+		// 	}
+		// 	printf("vertex %d active:\n", u);
+		// 	active[u] = false;
 			
-			// !!!
-			// new edge is not saved in disk
+		// 	// !!!
+		// 	// new edge is not saved in disk
 
 
-			loadNbr(u,nbr,degree,fIdx,fDat);
-			int v;
-			// visited[u] == true && active[u] == true means u is not qualified
-			if(visited[u] == false){
-				// calculate cntPlus
-				cntPlus[u] = 0;
+		// 	if(!loadNbrForDynamic(u,nbr,degree,fIdx,fDat)){
 
-				for(int i = 0; i < degree; ++i){
-					v = nbr[i];
-					if(ub[v] > ub[u] || (ub[v] == ub[u] && cnt[v] > ub[v])){
-						++cntPlus[u];
-					}
+		// 	}
+		// 	int v;
+		// 	// visited[u] == true && active[u] == true means u is not qualified
+		// 	if(visited[u] == false){
+		// 		// calculate cntPlus
+		// 		cntPlus[u] = 0;
 
-				}
-				visited[u] = true;
-			}
+		// 		for(int i = 0; i < degree; ++i){
+		// 			v = nbr[i];
+		// 			if(ub[v] > ub[u] || (ub[v] == ub[u] && cnt[v] > ub[v])){
+		// 				++cntPlus[u];
+		// 			}
+
+		// 		}
+		// 		visited[u] = true;
+		// 	}
 			
-			printf("cntPlus = %d\n",cntPlus[u] );
-			flag = true;
-			if(cntPlus[u] > ub[u]){
+		// 	printf("cntPlus = %d\n",cntPlus[u] );
+		// 	flag = true;
+		// 	if(cntPlus[u] > ub[u]){
 				
-				update[u] = true;
-				// mark neighbors to be detected next
-				for(int i = 0; i < degree; ++i){
-					v = nbr[i];
-					if(ub[v] == ub[u] && active[v] == false && visited[v] == false && cnt[v] > ub[v]){
-						active[v] = true;
-					}
+		// 		update[u] = true;
+		// 		// mark neighbors to be detected next
+		// 		for(int i = 0; i < degree; ++i){
+		// 			v = nbr[i];
+		// 			if(ub[v] == ub[u] && active[v] == false && visited[v] == false && cnt[v] > ub[v]){
+		// 				active[v] = true;
+		// 			}
 
-				}
-				printf("vertex %d update\n",u );
-			}else{
-				update[u] = false;
-				// calculate influence on neighbors
-				for(int i = 0; i < degree; ++i){
-					v = nbr[i];
-					if(ub[v] == ub[u] && active[v] == false && visited[v] == true && update[v] == true){
-						if(--cntPlus[v] <= ub[v]){
+		// 		}
+		// 		printf("vertex %d update\n",u );
+		// 	}else{
+		// 		update[u] = false;
+		// 		// calculate influence on neighbors
+		// 		for(int i = 0; i < degree; ++i){
+		// 			v = nbr[i];
+		// 			if(ub[v] == ub[u] && active[v] == false && visited[v] == true && update[v] == true){
+		// 				if(--cntPlus[v] <= ub[v]){
 
-							active[v] = true;
-							update[v] = false;
-						}
-					}
+		// 					active[v] = true;
+		// 					update[v] = false;
+		// 				}
+		// 			}
 
-				}
-			}
+		// 		}
+		// 	}
 
 
 
-		}
+		// }
 
 	}
 
@@ -530,10 +566,8 @@ void Application::addEdge(int a, int b){
 
 	
 
-	delete[] active;
-	delete[] visited;
-	delete[] update;
-	delete[] cntPlus;
+	delete[] x;
+	delete[] y;
 	delete[] nbr;
 
 	fDat.fclose();

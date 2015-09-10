@@ -5,6 +5,7 @@
 #include <string>
 #include <cstring>
 #include <algorithm>
+#include <sys/time.h>
 
 #include "MyFile.h"
 
@@ -25,6 +26,10 @@ private:
 	int m_maxDegree;
 	short* ub;
 	short* cnt;
+
+	unordered_set<int>** m_dynamic;
+
+
 
 	int m_maxID;
 	const static short m_maxCore = 30000;
