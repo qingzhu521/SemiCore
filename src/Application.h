@@ -27,7 +27,8 @@ private:
 	short* ub;
 	short* cnt;
 
-	unordered_set<int>** m_dynamic;
+	vector<int>** m_dynamicAdd;
+	unordered_set<int>** m_dynamicDel;
 
 
 
@@ -49,7 +50,7 @@ public:
 	void sortEdge(string txtFile);
 	void semiKCore();
 	void printCoreDistribution();
-	void addEdge(int a, int b);
+	bool addEdge(int a, int b);
 	void removeEdge(int a, int b);
 };
 

@@ -6,7 +6,7 @@ Application::Application(string base){
 	m_idx = base+"graph.idx";
 	m_info = base+"graph.info";
 	m_maxID = 1000000000;
-	m_dynamic = NULL;
+	m_dynamicAdd = NULL;
 	ub = NULL;
 	cnt = NULL;
 }
@@ -20,13 +20,21 @@ Application::~Application(){
 	if(cnt!=NULL){
 		delete[] cnt;
 	}
-	if(m_dynamic != NULL){
+	if(m_dynamicAdd != NULL){
 		for(int i = 0;i<m_m;++i){
-			if(m_dynamic[i]){
-				delete m_dynamic[i];
+			if(m_dynamicAdd[i]){
+				delete m_dynamicAdd[i];
 			}
 		}
-		delete[] m_dynamic;
+		delete[] m_dynamicAdd;
+	}
+	if(m_dynamicDel != NULL){
+		for(int i = 0;i<m_m;++i){
+			if(m_dynamicDel[i]){
+				delete m_dynamicDel[i];
+			}
+		}
+		delete[] m_dynamicDel;
 	}
 }
 
@@ -425,29 +433,62 @@ void Application::printCoreDistribution(){
 
 }
 
-bool Application::loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat){
+void Application::loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat){
+	fIdx.fseek(u*(sizeof(long)+sizeof(int)));
+
+	long pos;
+	fIdx.fread(&pos,sizeof(long));
+	int purDegree;
+	fIdx.fread(&purDegree,sizeof(int));
+
+	fDat.fseek(pos);
 	
+	// load all neighbors of vertex u
+	int addDegree = 0;
+	if(m_dynamicAdd[u]){
+		addDegree = m_dynamicAdd[u]->size();
+		for(int i = 0;i<addDegree;++i){
+			nbr[i] = m_dynamicAdd[u]->at(i);
+		}
+	}
+	degree = purDegree + addDegree;
+	while(purDegree--){
+		int t;
+		fDat.fread(&t,sizeof(int));
+		if(m_dynamicDel[u] && m_dynamicDel[u]->find(t)){
+			--degree;
+		}else{
+			nbr[addDegree++] = t;
+		}
+	}
+
 }
 void Application::addEdge(int a, int b){
 
 	// buffer edge
-	if(m_dynamic && m_dynamic[a] && m_dynamic[a]->find(b)!=m_dynamic[a]->end()){
-		printf("edge already exists in buffer\n");
-		return;
-	}
+	// if(m_dynamicAdd && m_dynamicAdd[a] && m_dynamicAdd[a]->find(b)!=m_dynamicAdd[a]->end()){
+	// 	printf("edge already exists in buffer\n");
+	// 	return;
+	// }
 
-	if(!m_dynamic){
-		m_dynamic = new unordered_set<int>*[m_m];
-		memset(m_dynamic, NULL, sizeof(unordered_set<int>*)*m_m);
+	// add edge
+	if(m_dynamicDel[a] && m_dynamicDel[a]->find(b)!=m_dynamicDel[a]->end()){
+		m_dynamicDel[a]->erase(b);
+		m_dynamicDel[b]->erase(a);
+	}else{
+		// if(!m_dynamicAdd){
+		// 	m_dynamicAdd = new unordered_set<int>*[m_m];
+		// 	memset(m_dynamicAdd, NULL, sizeof(unordered_set<int>*)*m_m);
+		// }
+		if(!m_dynamicAdd[a]){
+			m_dynamicAdd[a] = new vector<int>;
+		}
+		if(!m_dynamicAdd[b]){
+			m_dynamicAdd[b] = new vector<int>;
+		}
+		m_dynamicAdd[a]->push_back(b);
+		m_dynamicAdd[b]->push_back(a);
 	}
-	if(!m_dynamic[a]){
-		m_dynamic[a] = new unordered_set<int>;
-	}
-	if(!m_dynamic[b]){
-		m_dynamic[b] = new unordered_set<int>;
-	}
-	m_dynamic[a]->insert(b);
-	m_dynamic[b]->insert(a);
 
 
 
@@ -460,27 +501,71 @@ void Application::addEdge(int a, int b){
 	int degree;
 
 	short* cntPlus = new short[m_m];
+
 	bool* x = new bool[m_m];
 	bool* y = new bool[m_m];
 	memset(x,false,m_m);
 	memset(y,false,m_m);
 
 
-
+	printf("Add Edge(%d, %d),UB[%d] = %d, UB[%d] = %d\n",a,b,a,b,ub[a],ub[b] );
 	if(ub[a] == ub[b]){
-		++cnt[a];
-		++cnt[b];
-		// active[b] = true;
+		y[b] = true;
 	}
 
 	int root = ub[a] > ub[b] ? b : a;
-	active[root] = true;
+	y[root] = true;
 
-	printf("root == %d\n",root );
-	bool flag = true;
-	while(flag){
-		flag = false;
+	
+	bool update = true;
+	int v;
+	while(update){
+		update = false;
+		for(int u = 0; u<m_m; ++u){
+			if(y[u] == true && x[u] == false){
+				x[u] = true;
+				y[u] = true;
+				update = true;
 
+				// compute cntPlus
+				loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
+
+				cntPlus[u] = 0;
+				for(int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(ub[v] > ub[u] || (ub[v] == ub[u] && cnt[v] > ub[v] && (x[v]!=true || y[v]!=false))){
+						++cntPlus[u];
+					}
+				}
+
+				if(cntPlus[u] > ub[u]){
+					for(int i = 0; i < degree; ++i){
+						v = nbr[i];
+						if(cnt[v] > ub[v] && !x[v] && !y[v]){
+							x[v] = false;
+							y[v] = true;
+
+						}
+					}
+				}
+			}
+			if(x[u] && y[u] && cntPlus[u]<=ub[u]){
+				x[u] = true;
+				y[u] = false;
+				update = true;
+				if(degree == -1){
+					loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
+				}
+				for(int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(x[v] && y[v]){
+						--cntPlus[v];
+					}
+				}
+
+			}
+			degree = -1;
+		}
 		// for(int u = 0; u < m_m; ++u){
 		// 	if(!active[u]){
 		// 		continue;
@@ -548,20 +633,21 @@ void Application::addEdge(int a, int b){
 	}
 
 	for(int u = 0; u < m_m; ++u){
-		if(!update[u]){
+		if(!y[u]){
 			continue;
 		}
 		++ub[u];
 
 		cnt[u] = 0;
-		loadNbr(u,nbr,degree,fIdx,fDat);
+		loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
 		for(int i = 0; i<degree;++i){
 			int v = nbr[i];
-			if(ub[v]>=ub[u] || update[v]){
+			if(ub[v]>=ub[u] || y[v]){
 				++cnt[u];
 			}
 		}
-		update[u] = false;
+		// y[u] = false;
+		// x[u] = false;
 	}
 
 	
@@ -575,6 +661,24 @@ void Application::addEdge(int a, int b){
 }
 
 void Application::removeEdge(int a, int b){
+
+	//remove edge
+	if(m_dynamicAdd[a] && m_dynamicAdd[a]->find(b)!=m_dynamicAdd[a]->end()){
+		m_dynamicDel[a]->erase(m_dynamicAdd[a]->find(b));
+		m_dynamicDel[b]->erase(m_dynamicAdd[b]->find(a));
+	}else{
+		
+		if(!m_dynamicDel[a]){
+			m_dynamicDel[a] = new unordered_set<int>;
+		}
+		if(!m_dynamicAdd[b]){
+			m_dynamicAdd[b] = new unordered_set<int>;
+		}
+		m_dynamicAdd[a]->insert(b);
+		m_dynamicAdd[b]->insert(a);
+	}
+
+
 	if(ub[a] == ub[b]){
 		--cnt[a];
 		--cnt[b];
@@ -588,7 +692,6 @@ void Application::removeEdge(int a, int b){
 			return;
 		}
 	}
-	
 
 
 	MyReadFile fIdx( m_idx );
@@ -615,7 +718,7 @@ void Application::removeEdge(int a, int b){
 
 			short originUb = ub[u];
 			// get neighbors of vertex i
-			loadNbr(u,nbr,degree,fIdx,fDat);
+			loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
 			
 			int v;
 			// get the core distribution for neighbors' contribution
