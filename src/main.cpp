@@ -9,10 +9,10 @@ int main(){
 	
 	Application* app = new Application("/Users/dongwen/workspace/Hummingbird/dataset/test/");
 
-	//app->sortEdge("/Users/dongwen/workspace/Hummingbird/dataset/enron.txt");
+	app->sortEdge("/Users/dongwen/workspace/Hummingbird/dataset/test.txt");
 	
 	app->semiKCore();
-	app->dynamicCore();
+	//app->dynamicCore();
 	app->printCoreDistribution();
 
 	return 0;

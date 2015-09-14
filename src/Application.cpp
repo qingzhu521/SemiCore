@@ -105,6 +105,7 @@ void Application::sortEdge(string txtFile){
 
 }
 
+
 bool Application::edgeCompare(const Edge &e1, const Edge &e2){
 	if(e1.a < e2.a){
 		return true;
@@ -279,7 +280,6 @@ void Application::semiKCoreNaive(){
 	// initialize verterx number: n
 	fInfo.fread(&m_m,sizeof(int));
 	fInfo.fread(&m_maxDegree,sizeof(int));
-	printf("Naive Algorithm\n");
 	printf("Number of vertices: %d, max degree: %d\n",m_m, m_maxDegree );
 	fInfo.fclose();
 
@@ -311,7 +311,7 @@ void Application::semiKCoreNaive(){
 		fIdx.fread(&degreeTmp,sizeof(int));
 		ub[i] = degreeTmp>m_maxCore?m_maxCore:degreeTmp;
 	}
-	memset(cnt,0,sizeof(short)*m_m);
+	
 
 
 	int degree;
@@ -781,6 +781,38 @@ void Application::removeEdge(int a, int b){
 
 	fDat.fclose();
 	fIdx.fclose();
+}
+bool Application::isAddEdgeValidate(int a, int b){
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+	int* nbr = new int[m_maxDegree];
+	int degree;
+
+	fIdx.fseek(a*(sizeof(long)+sizeof(int)));
+
+	long pos;
+	fIdx.fread(&pos,sizeof(long));
+	fIdx.fread(&degree,sizeof(int));
+
+	fDat.fseek(pos);
+	
+	// load all neighbors of vertex u
+	fDat.fread(nbr,sizeof(int)*degree);
+
+	for(int i = 0;i<degree;++i){
+		if(nbr[i] == b){
+			delete[] nbr;
+			return false;
+		}
+	}
+
+	delete nbr;
+
+	fDat.fclose();
+	fIdx.fclose();
+	return true;
 }
 void Application::dynamicCore(){
 	m_dynamicAdd = new vector<int>*[m_m];

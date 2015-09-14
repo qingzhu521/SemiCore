@@ -45,6 +45,7 @@ private:
 	void merge(int size);
 	void loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
 	void loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
+	bool isAddEdgeValidate(int a, int b);
 public:
 	Application();
 	Application(string base);
