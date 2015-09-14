@@ -273,6 +273,112 @@ int Application::getVertexID(int u,int &num){
 	return m_vertexMap[u];
 }
 
+void Application::semiKCoreNaive(){
+	MyReadFile fInfo( m_info );
+	fInfo.fopen( BUFFERED );
+	// initialize verterx number: n
+	fInfo.fread(&m_m,sizeof(int));
+	fInfo.fread(&m_maxDegree,sizeof(int));
+	printf("Naive Algorithm\n");
+	printf("Number of vertices: %d, max degree: %d\n",m_m, m_maxDegree );
+	fInfo.fclose();
+
+
+	struct timeval start,finish;
+	gettimeofday(&start,NULL);
+	double totaltime = 0.0;
+	
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+
+	// array for saving upper bound of vertex core number, array will update iteratively
+	ub = new short[m_m];
+	
+
+	// array for loading every
+	int* nbr = new int[m_maxDegree];
+	short* nbrCnt = new short[m_maxDegree];
+
+
+	// initialize array ub and cnt by degree and 0 respectively
+	long tmp;
+	int degreeTmp;
+	for (int i = 0; i < m_m; ++i){
+		fIdx.fread(&tmp,sizeof(long));
+
+		fIdx.fread(&degreeTmp,sizeof(int));
+		ub[i] = degreeTmp>m_maxCore?m_maxCore:degreeTmp;
+	}
+	memset(cnt,0,sizeof(short)*m_m);
+
+
+	int degree;
+	int v;
+	int iteration = 0;
+	
+	double memory = (sizeof(short)*m_m+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree)/1024;
+	printf("[Naive] Memory useage: %.3f KB, %.3f MB\n",memory,memory/1024 );
+
+	
+	bool update = true;
+	while(update){
+		update = false;
+		printf("[Naive] iteration: %d\n",++iteration );
+
+		
+		for (int u = 0; u < m_m; ++u){
+
+			short originUb = ub[u];
+			// get neighbors of vertex i
+			loadNbr(u,nbr,degree,fIdx,fDat);
+			
+
+			// get the core distribution for neighbors' contribution
+			memset(nbrCnt,0,sizeof(short)*(originUb+1));
+			for (int j = 0; j < degree; ++j){
+				v = nbr[j];
+				++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
+			}
+
+
+			// calculate new ub and new cnt
+			int cnt = 0;
+			for (int i = originUb; i > 0; --i){
+				cnt += nbrCnt[i];
+				if(cnt >= i){
+					ub[u] = i;
+					break;
+				}
+			}
+			
+			// process neighbors
+			if(ub[u]<originUb){
+				update = true;
+			}
+			
+			
+		}
+
+	}
+	
+	gettimeofday(&finish,NULL);
+	totaltime = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
+	
+	printf("[Naive]Total processing time = %.3f sec (by gettimeofday() function)\n",totaltime);
+	
+	printf("[Naive]Memory useage: %.3f KB, %.3f MB\n",memory,memory/1024 );
+	printf("[Naive]I/O number: %ld (.dat file), %ld (.idx file) \n",fDat.get_total_io(),fIdx.get_total_io());
+	printf("[Naive]Number of vertices: %d, max degree: %d\n",m_m, m_maxDegree );
+
+	delete[] nbrCnt;
+	delete[] nbr;
+	
+	fDat.fclose();
+	fIdx.fclose();
+}
+
 void Application::semiKCore(){
 	
 	MyReadFile fInfo( m_info );
@@ -282,8 +388,7 @@ void Application::semiKCore(){
 	fInfo.fread(&m_maxDegree,sizeof(int));
 	printf("Number of vertices: %d, max degree: %d\n",m_m, m_maxDegree );
 	fInfo.fclose();
-	
-	long t = clock();
+
 
 	struct timeval start,finish;
 	gettimeofday(&start,NULL);
@@ -377,11 +482,8 @@ void Application::semiKCore(){
 	
 	gettimeofday(&finish,NULL);
 	totaltime = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
-	t = clock() - t;
 
 	printf("Total processing time = %.3f sec (by gettimeofday() function)\n",totaltime);
-	printf( "Total processing time = %.3lf sec (by clock() function)\n", t/1000000.0 );
-	
 	
 	printf("Memory useage: %.3f KB, %.3f MB\n",memory,memory/1024 );
 	printf("I/O number: %ld (.dat file), %ld (.idx file) \n",fDat.get_total_io(),fIdx.get_total_io());
@@ -444,53 +546,39 @@ void Application::loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fI
 	fDat.fseek(pos);
 	
 	// load all neighbors of vertex u
-	int addDegree = 0;
-	if(m_dynamicAdd[u]){
-		addDegree = m_dynamicAdd[u]->size();
-		for(int i = 0;i<addDegree;++i){
-			nbr[i] = m_dynamicAdd[u]->at(i);
+	degree = 0;
+	int t;
+	for(int i = 0;i<purDegree;++i){
+		
+		fDat.fread(&t,sizeof(int));
+		if(!m_dynamicDel[u] || m_dynamicDel[u]->find(t)==m_dynamicDel[u]->end()){
+			nbr[degree++] = t;
 		}
 	}
-	degree = purDegree + addDegree;
-	while(purDegree--){
-		int t;
-		fDat.fread(&t,sizeof(int));
-		if(m_dynamicDel[u] && m_dynamicDel[u]->find(t)){
-			--degree;
-		}else{
-			nbr[addDegree++] = t;
+	if(m_dynamicAdd[u]){
+		int addDegree = m_dynamicAdd[u]->size();
+		for(int i = 0;i<addDegree;++i){
+			t = m_dynamicAdd[u]->at(i);
+			if(!m_dynamicDel[u] || m_dynamicDel[u]->find(t)==m_dynamicDel[u]->end()){
+				nbr[degree++] = t;
+			}
 		}
 	}
 
+	
 }
 void Application::addEdge(int a, int b){
 
-	// buffer edge
-	// if(m_dynamicAdd && m_dynamicAdd[a] && m_dynamicAdd[a]->find(b)!=m_dynamicAdd[a]->end()){
-	// 	printf("edge already exists in buffer\n");
-	// 	return;
-	// }
-
-	// add edge
-	if(m_dynamicDel[a] && m_dynamicDel[a]->find(b)!=m_dynamicDel[a]->end()){
-		m_dynamicDel[a]->erase(b);
-		m_dynamicDel[b]->erase(a);
-	}else{
-		// if(!m_dynamicAdd){
-		// 	m_dynamicAdd = new unordered_set<int>*[m_m];
-		// 	memset(m_dynamicAdd, NULL, sizeof(unordered_set<int>*)*m_m);
-		// }
-		if(!m_dynamicAdd[a]){
-			m_dynamicAdd[a] = new vector<int>;
-		}
-		if(!m_dynamicAdd[b]){
-			m_dynamicAdd[b] = new vector<int>;
-		}
-		m_dynamicAdd[a]->push_back(b);
-		m_dynamicAdd[b]->push_back(a);
+	
+	if(!m_dynamicAdd[a]){
+		m_dynamicAdd[a] = new vector<int>;
 	}
-
-
+	if(!m_dynamicAdd[b]){
+		m_dynamicAdd[b] = new vector<int>;
+	}
+	m_dynamicAdd[a]->push_back(b);
+	m_dynamicAdd[b]->push_back(a);
+	
 
 	MyReadFile fIdx( m_idx );
 	fIdx.fopen( BUFFERED );
@@ -508,15 +596,16 @@ void Application::addEdge(int a, int b){
 	memset(y,false,m_m);
 
 
-	printf("Add Edge(%d, %d),UB[%d] = %d, UB[%d] = %d\n",a,b,a,b,ub[a],ub[b] );
+	// printf("Add Edge(%d, %d),UB[%d] = %d, UB[%d] = %d\n",a,b,a,ub[a],b,ub[b] );
 	if(ub[a] == ub[b]){
 		y[b] = true;
+		++cnt[b];
 	}
 
 	int root = ub[a] > ub[b] ? b : a;
 	y[root] = true;
+	++cnt[root];
 
-	
 	bool update = true;
 	int v;
 	while(update){
@@ -529,7 +618,7 @@ void Application::addEdge(int a, int b){
 
 				// compute cntPlus
 				loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
-
+				
 				cntPlus[u] = 0;
 				for(int i = 0; i < degree; ++i){
 					v = nbr[i];
@@ -566,69 +655,6 @@ void Application::addEdge(int a, int b){
 			}
 			degree = -1;
 		}
-		// for(int u = 0; u < m_m; ++u){
-		// 	if(!active[u]){
-		// 		continue;
-		// 	}
-		// 	printf("vertex %d active:\n", u);
-		// 	active[u] = false;
-			
-		// 	// !!!
-		// 	// new edge is not saved in disk
-
-
-		// 	if(!loadNbrForDynamic(u,nbr,degree,fIdx,fDat)){
-
-		// 	}
-		// 	int v;
-		// 	// visited[u] == true && active[u] == true means u is not qualified
-		// 	if(visited[u] == false){
-		// 		// calculate cntPlus
-		// 		cntPlus[u] = 0;
-
-		// 		for(int i = 0; i < degree; ++i){
-		// 			v = nbr[i];
-		// 			if(ub[v] > ub[u] || (ub[v] == ub[u] && cnt[v] > ub[v])){
-		// 				++cntPlus[u];
-		// 			}
-
-		// 		}
-		// 		visited[u] = true;
-		// 	}
-			
-		// 	printf("cntPlus = %d\n",cntPlus[u] );
-		// 	flag = true;
-		// 	if(cntPlus[u] > ub[u]){
-				
-		// 		update[u] = true;
-		// 		// mark neighbors to be detected next
-		// 		for(int i = 0; i < degree; ++i){
-		// 			v = nbr[i];
-		// 			if(ub[v] == ub[u] && active[v] == false && visited[v] == false && cnt[v] > ub[v]){
-		// 				active[v] = true;
-		// 			}
-
-		// 		}
-		// 		printf("vertex %d update\n",u );
-		// 	}else{
-		// 		update[u] = false;
-		// 		// calculate influence on neighbors
-		// 		for(int i = 0; i < degree; ++i){
-		// 			v = nbr[i];
-		// 			if(ub[v] == ub[u] && active[v] == false && visited[v] == true && update[v] == true){
-		// 				if(--cntPlus[v] <= ub[v]){
-
-		// 					active[v] = true;
-		// 					update[v] = false;
-		// 				}
-		// 			}
-
-		// 		}
-		// 	}
-
-
-
-		// }
 
 	}
 
@@ -662,21 +688,16 @@ void Application::addEdge(int a, int b){
 
 void Application::removeEdge(int a, int b){
 
-	//remove edge
-	if(m_dynamicAdd[a] && m_dynamicAdd[a]->find(b)!=m_dynamicAdd[a]->end()){
-		m_dynamicDel[a]->erase(m_dynamicAdd[a]->find(b));
-		m_dynamicDel[b]->erase(m_dynamicAdd[b]->find(a));
-	}else{
 		
-		if(!m_dynamicDel[a]){
-			m_dynamicDel[a] = new unordered_set<int>;
-		}
-		if(!m_dynamicAdd[b]){
-			m_dynamicAdd[b] = new unordered_set<int>;
-		}
-		m_dynamicAdd[a]->insert(b);
-		m_dynamicAdd[b]->insert(a);
+	if(!m_dynamicDel[a]){
+		m_dynamicDel[a] = new unordered_set<int>;
 	}
+	if(!m_dynamicDel[b]){
+		m_dynamicDel[b] = new unordered_set<int>;
+	}
+	m_dynamicDel[a]->insert(b);
+	m_dynamicDel[b]->insert(a);
+	
 
 
 	if(ub[a] == ub[b]){
@@ -760,4 +781,18 @@ void Application::removeEdge(int a, int b){
 
 	fDat.fclose();
 	fIdx.fclose();
+}
+void Application::dynamicCore(){
+	m_dynamicAdd = new vector<int>*[m_m];
+	m_dynamicDel = new unordered_set<int>*[m_m];
+
+	memset(m_dynamicAdd,0,sizeof(vector<int>*)*m_m);
+	memset(m_dynamicDel,0,sizeof(unordered_set<int>*)*m_m);
+
+	addEdge(0,3);
+	addEdge(0,2);
+	addEdge(1,3);
+	printf("ub[0] = %d\n",ub[0] );
+	removeEdge(0,3);
+	printf("ub[0] = %d\n",ub[0] );
 }

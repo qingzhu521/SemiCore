@@ -5,6 +5,8 @@
 #include <string>
 #include <cstring>
 #include <algorithm>
+#include <vector>
+#include <unordered_set>
 #include <sys/time.h>
 
 #include "MyFile.h"
@@ -42,16 +44,18 @@ private:
 	bool mergeFinished(Edge* es, int size);
 	void merge(int size);
 	void loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
-	
+	void loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
 public:
 	Application();
 	Application(string base);
 	~Application();
 	void sortEdge(string txtFile);
 	void semiKCore();
+	void semiKCoreNaive();
 	void printCoreDistribution();
-	bool addEdge(int a, int b);
+	void addEdge(int a, int b);
 	void removeEdge(int a, int b);
+	void dynamicCore();
 };
 
 #endif /* APPLICATION_H_ */
