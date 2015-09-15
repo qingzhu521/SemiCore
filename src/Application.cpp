@@ -524,12 +524,12 @@ void Application::printCoreDistribution(){
 
 	printf("1-core: %d, %d-core: %d\n",core[1],maxCore,core[maxCore]);
 
-	// for (int i = 0; i <= maxCore; ++i){
-	// 	if(core[i]>0){
-	// 		printf("core %d: %d\n",i,core[i] );
-	// 	}
+	for (int i = 0; i <= maxCore; ++i){
+		if(core[i]>0){
+			printf("core %d: %d\n",i,core[i] );
+		}
 		
-	// }
+	}
 
 	delete[] core;
 
@@ -688,7 +688,7 @@ void Application::addEdge(int a, int b){
 
 void Application::removeEdge(int a, int b){
 
-		
+
 	if(!m_dynamicDel[a]){
 		m_dynamicDel[a] = new unordered_set<int>;
 	}
@@ -782,7 +782,7 @@ void Application::removeEdge(int a, int b){
 	fDat.fclose();
 	fIdx.fclose();
 }
-bool Application::isAddEdgeValidate(int a, int b){
+int Application::selectNbr(int a){
 	MyReadFile fIdx( m_idx );
 	fIdx.fopen( BUFFERED );
 	MyReadFile fDat( m_dat );
@@ -801,30 +801,106 @@ bool Application::isAddEdgeValidate(int a, int b){
 	// load all neighbors of vertex u
 	fDat.fread(nbr,sizeof(int)*degree);
 
-	for(int i = 0;i<degree;++i){
-		if(nbr[i] == b){
-			delete[] nbr;
-			return false;
-		}
-	}
+	int r = nbr[0];
 
 	delete nbr;
 
 	fDat.fclose();
 	fIdx.fclose();
-	return true;
+	return r;
 }
-void Application::dynamicCore(){
+void Application::dynamicCore(int num){
 	m_dynamicAdd = new vector<int>*[m_m];
 	m_dynamicDel = new unordered_set<int>*[m_m];
 
 	memset(m_dynamicAdd,0,sizeof(vector<int>*)*m_m);
 	memset(m_dynamicDel,0,sizeof(unordered_set<int>*)*m_m);
 
-	addEdge(0,3);
-	addEdge(0,2);
-	addEdge(1,3);
-	printf("ub[0] = %d\n",ub[0] );
-	removeEdge(0,3);
-	printf("ub[0] = %d\n",ub[0] );
+	// prepare dynamic edges
+	int dynamic[num*2];
+	int sep = m_m/num;
+	int curVertex = 0, cut = 0;
+	int min, max;
+	for(int i=0;curVertex<m_m;i+=2){
+		int b = selectNbr(curVertex);
+		if(b%num == 0 && b<curVertex){
+			++cut;
+			i -= 2;
+		}else{
+			dynamic[i] = curVertex;
+			dynamic[i+1] = b;
+		}
+		curVertex += sep;
+	}
+	num -= cut;
+	printf("select %d edges\n",num );
+	// add edge
+	printf("start add edges: \n");
+
+	struct timeval start,finish;
+	gettimeofday(&start,NULL);
+	double totaltime = 0.0;
+
+	for (int i = 0; i < num; ++i){
+		printf("[%d,%d] ",dynamic[i*2],dynamic[i*2+1] );
+		addEdge(dynamic[i*2],dynamic[i*2+1]);
+	}
+	gettimeofday(&finish,NULL);
+	totaltime = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
+	printf("\nAdd %d edges, time = %.3f sec, average time for one edge: %.3f \n",num,totaltime,totaltime/num);
+	
+
+	// remove edge
+	printf("start remove edges:\n");
+	gettimeofday(&start,NULL);
+	for (int i = 0; i < num; ++i){
+		printf("[%d,%d] ",dynamic[i*2],dynamic[i*2+1] );
+		removeEdge(dynamic[i*2],dynamic[i*2+1]);
+	}
+	gettimeofday(&finish,NULL);
+	totaltime = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
+	printf("\nRemove %d edges, time = %.3f sec, average time for one edge: %.3f \n",num,totaltime,totaltime/num);
+
+}
+long Application::getEdgeNumber(){
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	unsigned long r = 0;
+	for(int i = 0;i<m_m;++i){
+		fIdx.fseek(i*(sizeof(long)+sizeof(int)));
+		long pos;
+		int degree;
+		fIdx.fread(&pos,sizeof(long));
+		fIdx.fread(&degree,sizeof(int));
+		r += degree;
+	}
+	fIdx.fclose();
+	return r>>1;
+}
+void Application::saveCore(){
+	printf("save core number and cnt number\n");
+	string core = m_base+"core.st";
+	FILE* fSt = fopen(core.c_str(),"wb");
+	fwrite(&ub,sizeof(short),m_m,fSt);
+	fwrite(&cnt,sizeof(short),m_m,fSt);
+	fclose(fSt);
+}
+void Application::loadCore(){
+	MyReadFile fInfo( m_info );
+	fInfo.fopen( BUFFERED );
+	// initialize verterx number: n
+	fInfo.fread(&m_m,sizeof(int));
+	fInfo.fread(&m_maxDegree,sizeof(int));
+	printf("Number of vertices: %d, max degree: %d\n",m_m, m_maxDegree );
+	fInfo.fclose();
+
+	printf("load ub and cnt\n");
+	string core = m_base+"core.st";
+	MyReadFile fSt( core );
+	fSt.fopen( BUFFERED );
+	ub = new short[m_m];
+	cnt = new short[m_m];
+	fSt.fread(&ub,sizeof(short)*m_m);
+	fSt.fread(&cnt,sizeof(short)*m_m);
+	fSt.fclose();
 }

@@ -8,6 +8,7 @@
 #include <vector>
 #include <unordered_set>
 #include <sys/time.h>
+#include <cstdlib>
 
 #include "MyFile.h"
 
@@ -45,7 +46,7 @@ private:
 	void merge(int size);
 	void loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
 	void loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
-	bool isAddEdgeValidate(int a, int b);
+	int selectNbr(int a);
 public:
 	Application();
 	Application(string base);
@@ -56,7 +57,10 @@ public:
 	void printCoreDistribution();
 	void addEdge(int a, int b);
 	void removeEdge(int a, int b);
-	void dynamicCore();
+	void dynamicCore(int num);
+	void saveCore();
+	void loadCore();
+	long getEdgeNumber();
 };
 
 #endif /* APPLICATION_H_ */
