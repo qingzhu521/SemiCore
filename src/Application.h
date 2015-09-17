@@ -51,7 +51,7 @@ public:
 	Application();
 	Application(string base);
 	~Application();
-	void sortEdge(string txtFile);
+	void sortEdge(string txtFile, int scale);
 	void semiKCore();
 	void semiKCoreNaive();
 	void printCoreDistribution();
@@ -60,7 +60,7 @@ public:
 	void dynamicCore(int num);
 	void saveCore();
 	void loadCore();
-	long getEdgeNumber();
+	void getGraphInfo();
 };
 
 #endif /* APPLICATION_H_ */

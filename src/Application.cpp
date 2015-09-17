@@ -38,9 +38,10 @@ Application::~Application(){
 	}
 }
 
-void Application::sortEdge(string txtFile){
+void Application::sortEdge(string txtFile,int scale){
 	printf("Start... txtFile: %s\n",txtFile.c_str());
 
+	scale = scale/10-1;
 	
 	int memEdges = 100000000;
 
@@ -69,8 +70,9 @@ void Application::sortEdge(string txtFile){
 
 		sscanf(line,"%d,%d",&u,&v);
 
-		if(u == v)
-			continue;
+		if(u == v) continue;
+
+		if(u%10>scale || v%10>scale) continue;
 
 		u = getVertexID(u,num);
 		v = getVertexID(v,num);
@@ -366,7 +368,7 @@ void Application::semiKCoreNaive(){
 	gettimeofday(&finish,NULL);
 	totaltime = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
 	
-	printf("[Naive]Total processing time = %.3f sec (by gettimeofday() function)\n",totaltime);
+	printf("[Naive]Total processing time = %.3f sec\n",totaltime);
 	
 	printf("[Naive]Memory useage: %.3f KB, %.3f MB\n",memory,memory/1024 );
 	printf("[Naive]I/O number: %ld (.dat file), %ld (.idx file) \n",fDat.get_total_io(),fIdx.get_total_io());
@@ -862,12 +864,20 @@ void Application::dynamicCore(int num){
 	printf("\nRemove %d edges, time = %.3f sec, average time for one edge: %.3f \n",num,totaltime,totaltime/num);
 
 }
-long Application::getEdgeNumber(){
+void Application::getGraphInfo(){
+	MyReadFile fInfo( m_info );
+	fInfo.fopen( BUFFERED );
+	// initialize verterx number: n
+	fInfo.fread(&m_m,sizeof(int));
+	fInfo.fread(&m_maxDegree,sizeof(int));
+	
+	fInfo.fclose();
+
 	MyReadFile fIdx( m_idx );
 	fIdx.fopen( BUFFERED );
 	unsigned long r = 0;
 	for(int i = 0;i<m_m;++i){
-		fIdx.fseek(i*(sizeof(long)+sizeof(int)));
+		// fIdx.fseek(i*(sizeof(long)+sizeof(int)));
 		long pos;
 		int degree;
 		fIdx.fread(&pos,sizeof(long));
@@ -875,14 +885,14 @@ long Application::getEdgeNumber(){
 		r += degree;
 	}
 	fIdx.fclose();
-	return r>>1;
+	printf("Number of vertices: %d, max degree: %d, edges: %lu\n",m_m, m_maxDegree,r>>1 );
 }
 void Application::saveCore(){
 	printf("save core number and cnt number\n");
 	string core = m_base+"core.st";
 	FILE* fSt = fopen(core.c_str(),"wb");
-	fwrite(&ub,sizeof(short),m_m,fSt);
-	fwrite(&cnt,sizeof(short),m_m,fSt);
+	fwrite(ub,sizeof(short),m_m,fSt);
+	fwrite(cnt,sizeof(short),m_m,fSt);
 	fclose(fSt);
 }
 void Application::loadCore(){
@@ -893,14 +903,16 @@ void Application::loadCore(){
 	fInfo.fread(&m_maxDegree,sizeof(int));
 	printf("Number of vertices: %d, max degree: %d\n",m_m, m_maxDegree );
 	fInfo.fclose();
-
+	printf("1\n");
 	printf("load ub and cnt\n");
 	string core = m_base+"core.st";
 	MyReadFile fSt( core );
+	printf("2\n");
 	fSt.fopen( BUFFERED );
+	printf("3\n");
 	ub = new short[m_m];
 	cnt = new short[m_m];
-	fSt.fread(&ub,sizeof(short)*m_m);
-	fSt.fread(&cnt,sizeof(short)*m_m);
+	fSt.fread(ub,sizeof(short)*m_m);
+	fSt.fread(cnt,sizeof(short)*m_m);
 	fSt.fclose();
 }
