@@ -9,6 +9,8 @@ Application::Application(string base){
 	m_dynamicAdd = NULL;
 	ub = NULL;
 	cnt = NULL;
+	m_delBit = NULL;
+	m_addBit = NULL;
 }
 Application::Application(){
 
@@ -35,6 +37,10 @@ Application::~Application(){
 			}
 		}
 		delete[] m_dynamicDel;
+	}
+	if(m_delBit != NULL){
+		delete[] m_delBit;
+		delete[] m_addBit;
 	}
 }
 
@@ -68,7 +74,7 @@ void Application::sortEdge(string txtFile,int scale){
 		if( line[0] < '0' || line[0] > '9' )
 			continue;
 
-		sscanf(line,"%d,%d",&u,&v);
+		sscanf(line,"%d\t%d",&u,&v);
 
 		if(u == v) continue;
 
@@ -524,7 +530,7 @@ void Application::printCoreDistribution(){
 		maxCore = ub[i]>maxCore?ub[i]:maxCore;
 	}
 
-	printf("1-core: %d, %d-core: %d\n",core[1],maxCore,core[maxCore]);
+	// printf("1-core: %d, %d-core: %d\n",core[1],maxCore,core[maxCore]);
 
 	for (int i = 0; i <= maxCore; ++i){
 		if(core[i]>0){
@@ -546,6 +552,9 @@ void Application::loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fI
 	fIdx.fread(&purDegree,sizeof(int));
 
 	fDat.fseek(pos);
+	if(u==1332654){
+		printf("load %d 's nbr,purDegree=%d\n",u,purDegree );
+	}
 	
 	// load all neighbors of vertex u
 	degree = 0;
@@ -553,7 +562,10 @@ void Application::loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fI
 	for(int i = 0;i<purDegree;++i){
 		
 		fDat.fread(&t,sizeof(int));
-		if(!m_dynamicDel[u] || m_dynamicDel[u]->find(t)==m_dynamicDel[u]->end()){
+		if(!m_delBit[u] || m_dynamicDel[u]->find(t)==m_dynamicDel[u]->end()){
+			if(u==1332654){
+				printf("[%d],",t );
+			}
 			nbr[degree++] = t;
 		}
 	}
@@ -561,41 +573,52 @@ void Application::loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fI
 		int addDegree = m_dynamicAdd[u]->size();
 		for(int i = 0;i<addDegree;++i){
 			t = m_dynamicAdd[u]->at(i);
-			if(!m_dynamicDel[u] || m_dynamicDel[u]->find(t)==m_dynamicDel[u]->end()){
+			if(!m_delBit[u] || m_dynamicDel[u]->find(t)==m_dynamicDel[u]->end()){
 				nbr[degree++] = t;
+				if(u==1332654){
+					printf("[%d],",t );
+				}
 			}
 		}
 	}
-
+	if(u==1332654){
+		printf("\ndegree=%d\n",degree);
+	}
 	
 }
 void Application::addEdge(int a, int b){
 
-	
-	if(!m_dynamicAdd[a]){
-		m_dynamicAdd[a] = new vector<int>;
+	if(m_delBit[b] && m_delBit[a] && m_dynamicDel[a]->find(b)!=m_dynamicDel[a]->end()){
+		m_dynamicDel[a]->erase(b);
+		m_dynamicDel[b]->erase(a);
+	}else{
+		if(!m_addBit[a]){
+			m_dynamicAdd[a] = new vector<int>;
+			m_addBit[a] = true;
+
+		}
+		if(!m_addBit[b]){
+			m_dynamicAdd[b] = new vector<int>;
+			m_addBit[b] = true;
+		}
+		m_dynamicAdd[a]->push_back(b);
+		m_dynamicAdd[b]->push_back(a);
 	}
-	if(!m_dynamicAdd[b]){
-		m_dynamicAdd[b] = new vector<int>;
-	}
-	m_dynamicAdd[a]->push_back(b);
-	m_dynamicAdd[b]->push_back(a);
-	
 
 	MyReadFile fIdx( m_idx );
 	fIdx.fopen( BUFFERED );
 	MyReadFile fDat( m_dat );
 	fDat.fopen( BUFFERED );
 
-	int* nbr = new int[m_maxDegree];
+	int* nbr = new int[m_maxDegree+100];
 	int degree;
 
 	short* cntPlus = new short[m_m];
 
 	bool* x = new bool[m_m];
 	bool* y = new bool[m_m];
-	memset(x,false,m_m);
-	memset(y,false,m_m);
+	memset(x,0,m_m);
+	memset(y,0,m_m);
 
 
 	// printf("Add Edge(%d, %d),UB[%d] = %d, UB[%d] = %d\n",a,b,a,ub[a],b,ub[b] );
@@ -632,7 +655,7 @@ void Application::addEdge(int a, int b){
 				if(cntPlus[u] > ub[u]){
 					for(int i = 0; i < degree; ++i){
 						v = nbr[i];
-						if(cnt[v] > ub[v] && !x[v] && !y[v]){
+						if(ub[v]==ub[u] && cnt[v] > ub[v] && !x[v] && !y[v]){
 							x[v] = false;
 							y[v] = true;
 
@@ -683,6 +706,7 @@ void Application::addEdge(int a, int b){
 	delete[] x;
 	delete[] y;
 	delete[] nbr;
+	delete[] cntPlus;
 
 	fDat.fclose();
 	fIdx.fclose();
@@ -691,17 +715,19 @@ void Application::addEdge(int a, int b){
 void Application::removeEdge(int a, int b){
 
 
-	if(!m_dynamicDel[a]){
+	if(!m_delBit[a]){
 		m_dynamicDel[a] = new unordered_set<int>;
+		m_delBit[a] = true;
 	}
-	if(!m_dynamicDel[b]){
+	if(!m_delBit[b]){
 		m_dynamicDel[b] = new unordered_set<int>;
+		m_delBit[b] = true;
 	}
 	m_dynamicDel[a]->insert(b);
 	m_dynamicDel[b]->insert(a);
+	//if(m_dynamicAdd[a]&&m_dynamicAdd[b]&&m_dynamicAdd)
 	
-
-
+	
 	if(ub[a] == ub[b]){
 		--cnt[a];
 		--cnt[b];
@@ -817,6 +843,13 @@ void Application::dynamicCore(int num){
 
 	memset(m_dynamicAdd,0,sizeof(vector<int>*)*m_m);
 	memset(m_dynamicDel,0,sizeof(unordered_set<int>*)*m_m);
+	m_delBit = new bool[m_m];
+	m_addBit = new bool[m_m];
+	memset(m_delBit,0,sizeof(bool)*m_m);
+	memset(m_addBit,0,sizeof(bool)*m_m);
+
+
+
 
 	// prepare dynamic edges
 	int dynamic[num*2];
@@ -836,32 +869,43 @@ void Application::dynamicCore(int num){
 	}
 	num -= cut;
 	printf("select %d edges\n",num );
-	// add edge
-	printf("start add edges: \n");
+
+
+
 
 	struct timeval start,finish;
-	gettimeofday(&start,NULL);
-	double totaltime = 0.0;
-
-	for (int i = 0; i < num; ++i){
-		printf("[%d,%d] ",dynamic[i*2],dynamic[i*2+1] );
-		addEdge(dynamic[i*2],dynamic[i*2+1]);
-	}
-	gettimeofday(&finish,NULL);
-	totaltime = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
-	printf("\nAdd %d edges, time = %.3f sec, average time for one edge: %.3f \n",num,totaltime,totaltime/num);
 	
-
 	// remove edge
 	printf("start remove edges:\n");
 	gettimeofday(&start,NULL);
+	double totaltimeB = 0.0;
 	for (int i = 0; i < num; ++i){
-		printf("[%d,%d] ",dynamic[i*2],dynamic[i*2+1] );
+		printf("[%d,%d]\n",dynamic[i*2],dynamic[i*2+1] );
 		removeEdge(dynamic[i*2],dynamic[i*2+1]);
 	}
 	gettimeofday(&finish,NULL);
-	totaltime = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
-	printf("\nRemove %d edges, time = %.3f sec, average time for one edge: %.3f \n",num,totaltime,totaltime/num);
+	totaltimeB = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
+	
+
+	
+	// add edge
+	printf("start add edges: \n");
+	gettimeofday(&start,NULL);
+	double totaltimeA = 0.0;
+	
+	for (int i = 0; i < num; ++i){
+		printf("[%d,%d]\n",dynamic[i*2],dynamic[i*2+1] );
+		addEdge(dynamic[i*2],dynamic[i*2+1]);
+	}
+	gettimeofday(&finish,NULL);
+	totaltimeA = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
+	
+
+
+
+	printf("\nAdd %d edges, time = %.3f sec, average time for one edge: %.3f \n",num,totaltimeA,totaltimeA/num);
+	
+	printf("\nRemove %d edges, time = %.3f sec, average time for one edge: %.3f \n",num,totaltimeB,totaltimeB/num);
 
 }
 void Application::getGraphInfo(){
@@ -903,13 +947,10 @@ void Application::loadCore(){
 	fInfo.fread(&m_maxDegree,sizeof(int));
 	printf("Number of vertices: %d, max degree: %d\n",m_m, m_maxDegree );
 	fInfo.fclose();
-	printf("1\n");
 	printf("load ub and cnt\n");
 	string core = m_base+"core.st";
 	MyReadFile fSt( core );
-	printf("2\n");
 	fSt.fopen( BUFFERED );
-	printf("3\n");
 	ub = new short[m_m];
 	cnt = new short[m_m];
 	fSt.fread(ub,sizeof(short)*m_m);

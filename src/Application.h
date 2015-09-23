@@ -33,7 +33,8 @@ private:
 	vector<int>** m_dynamicAdd;
 	unordered_set<int>** m_dynamicDel;
 
-
+	bool* m_addBit;
+	bool* m_delBit;
 
 	int m_maxID;
 	const static short m_maxCore = 30000;
