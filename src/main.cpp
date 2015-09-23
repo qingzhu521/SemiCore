@@ -14,7 +14,7 @@ int main(){
 	//app->semiKCore();
 	//app->saveCore();
 	app->loadCore();
-	// app->dynamicCore(100);
+	app->dynamicCore(100);
 	
 	
 	app->printCoreDistribution();
