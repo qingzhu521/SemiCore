@@ -36,6 +36,7 @@ private:
 	bool* m_addBit;
 	bool* m_delBit;
 
+	short* m_cntStar;
 
 	int m_maxID;
 	const static short m_maxCore = 30000;
@@ -49,7 +50,9 @@ private:
 	void loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
 	void loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
 	int selectNbr(int a);
+	void calCntStar(bool isUpdate);
 
+	bool* m_cpBit;
 public:
 	Application();
 	Application(string base);
@@ -66,6 +69,7 @@ public:
 	void loadCore();
 	void getGraphInfo();
 
+	void addEdgeStar(int a, int b);
 };
 
 #endif /* APPLICATION_H_ */

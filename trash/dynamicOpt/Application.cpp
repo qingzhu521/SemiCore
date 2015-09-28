@@ -11,6 +11,8 @@ Application::Application(string base){
 	cnt = NULL;
 	m_delBit = NULL;
 	m_addBit = NULL;
+	m_cntStar = NULL;
+	m_cpBit = NULL;
 }
 Application::Application(){
 
@@ -42,7 +44,12 @@ Application::~Application(){
 		delete[] m_delBit;
 		delete[] m_addBit;
 	}
-	
+	if(m_cntStar != NULL){
+		delete[] m_cntStar;
+	}
+	if(m_cpBit != NULL){
+		delete[] m_cpBit;
+	}
 }
 
 void Application::sortEdge(string txtFile,int scale){
@@ -553,6 +560,10 @@ void Application::loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fI
 	fIdx.fread(&purDegree,sizeof(int));
 
 	fDat.fseek(pos);
+	// if(u==1332654){
+	// 	printf("load %d 's nbr,purDegree=%d\n",u,purDegree );
+	// }
+	
 	// load all neighbors of vertex u
 	degree = 0;
 	int t;
@@ -560,7 +571,9 @@ void Application::loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fI
 		
 		fDat.fread(&t,sizeof(int));
 		if(!m_delBit[u] || m_dynamicDel[u]->find(t)==m_dynamicDel[u]->end()){
-			
+			// if(u==1332654){
+			// 	printf("[%d],",t );
+			// }
 			nbr[degree++] = t;
 		}
 	}
@@ -570,13 +583,142 @@ void Application::loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fI
 			t = m_dynamicAdd[u]->at(i);
 			if(!m_delBit[u] || m_dynamicDel[u]->find(t)==m_dynamicDel[u]->end()){
 				nbr[degree++] = t;
-				
+				if(u==1332654){
+					printf("[%d],",t );
+				}
 			}
 		}
 	}
+	// if(u==1332654){
+	// 	printf("\ndegree=%d\n",degree);
+	// }
 	
 }
 
+void Application::addEdgeStar(int a, int b){
+	if(m_delBit[b] && m_delBit[a] && m_dynamicDel[a]->find(b)!=m_dynamicDel[a]->end()){
+		m_dynamicDel[a]->erase(b);
+		m_dynamicDel[b]->erase(a);
+	}else{
+		if(!m_addBit[a]){
+			m_dynamicAdd[a] = new vector<int>;
+			m_addBit[a] = true;
+
+		}
+		if(!m_addBit[b]){
+			m_dynamicAdd[b] = new vector<int>;
+			m_addBit[b] = true;
+		}
+		m_dynamicAdd[a]->push_back(b);
+		m_dynamicAdd[b]->push_back(a);
+	}
+
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+
+	int* nbr = new int[m_maxDegree+100];
+	int degree;
+
+	short* cntPlus = new short[m_m];
+
+	bool* x = new bool[m_m];
+	bool* y = new bool[m_m];
+	memset(x,0,m_m);
+	memset(y,0,m_m);
+
+
+	// printf("Add Edge(%d, %d),UB[%d] = %d, UB[%d] = %d\n",a,b,a,ub[a],b,ub[b] );
+	if(ub[a] == ub[b]){
+		y[b] = true;
+		++cnt[b];
+	}
+
+	int root = ub[a] > ub[b] ? b : a;
+	y[root] = true;
+	++cnt[root];
+
+	bool update = true;
+	int v;
+	while(update){
+		update = false;
+		for(int u = 0; u<m_m; ++u){
+			if(y[u] == true && x[u] == false){
+				x[u] = true;
+				y[u] = true;
+				update = true;
+
+				// compute cntPlus
+				loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
+				
+				cntPlus[u] = 0;
+				for(int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(ub[v] > ub[u] || (ub[v] == ub[u] && cnt[v] > ub[v] && (x[v]!=true || y[v]!=false))){
+						++cntPlus[u];
+					}
+				}
+
+				if(cntPlus[u] > ub[u]){
+					for(int i = 0; i < degree; ++i){
+						v = nbr[i];
+						if(ub[v]==ub[u] && cnt[v] > ub[v] && !x[v] && !y[v]){
+							x[v] = false;
+							y[v] = true;
+
+						}
+					}
+				}
+			}
+			if(x[u] && y[u] && cntPlus[u]<=ub[u]){
+				x[u] = true;
+				y[u] = false;
+				update = true;
+				if(degree == -1){
+					loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
+				}
+				for(int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(x[v] && y[v]){
+						--cntPlus[v];
+					}
+				}
+
+			}
+			degree = -1;
+		}
+
+	}
+
+	for(int u = 0; u < m_m; ++u){
+		if(!y[u]){
+			continue;
+		}
+		++ub[u];
+
+		cnt[u] = 0;
+		loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
+		for(int i = 0; i<degree;++i){
+			int v = nbr[i];
+			if(ub[v]>=ub[u] || y[v]){
+				++cnt[u];
+			}
+		}
+		// y[u] = false;
+		// x[u] = false;
+	}
+
+	
+
+	delete[] x;
+	delete[] y;
+	delete[] nbr;
+	delete[] cntPlus;
+
+	fDat.fclose();
+	fIdx.fclose();
+}
 
 void Application::addEdge(int a, int b){
 
@@ -717,7 +859,7 @@ void Application::removeEdge(int a, int b){
 	}
 	m_dynamicDel[a]->insert(b);
 	m_dynamicDel[b]->insert(a);
-	
+	//if(m_dynamicAdd[a]&&m_dynamicAdd[b]&&m_dynamicAdd)
 	
 	
 	if(ub[a] == ub[b]){
@@ -802,7 +944,124 @@ void Application::removeEdge(int a, int b){
 	fDat.fclose();
 	fIdx.fclose();
 }
+void Application::removeEdgeStar(int a, int b){
 
+
+	if(!m_delBit[a]){
+		m_dynamicDel[a] = new unordered_set<int>;
+		m_delBit[a] = true;
+	}
+	if(!m_delBit[b]){
+		m_dynamicDel[b] = new unordered_set<int>;
+		m_delBit[b] = true;
+	}
+	m_dynamicDel[a]->insert(b);
+	m_dynamicDel[b]->insert(a);
+	
+	
+	if(ub[a] == ub[b]){
+		--cnt[a];
+		--cnt[b];
+		
+		if(cnt[a]>=ub[a] && cnt[b]>=ub[b]){
+			if(m_cntPlus[a]>ub[a]){
+				--m_cntPlus[b];
+				if(m_cntPlus[b] == ub[b]){
+					m_cpBit[b] = true;
+				}
+			}
+			if(m_cntPlus[b]>ub[b]){
+				--m_cntPlus[a];
+				if(m_cntPlus[a] == ub[a]){
+					m_cpBit[a] = true;
+				}
+			}
+			csUpdateRemove(false);
+			return;
+		}
+	}else{
+		int root = ub[a] > ub[b] ? b : a;
+		--cnt[root];
+		
+		if(cnt[root]>=ub[root]){
+			--m_cntPlus[root];
+			if(m_cntPlus[root] == ub[root]){
+				m_cpBit[root] = true;
+				csUpdateRemove(false);
+			}
+			return;
+		}
+	}
+
+
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+
+	int* nbr = new int[m_maxDegree];
+	int degree;
+	short* nbrCnt = new short[m_maxDegree];
+
+	
+
+	bool update = true;
+	while(update){
+		update = false;
+
+		
+		for (int u = 0; u < m_m; ++u){
+
+			if(cnt[u]>=ub[u]){
+				continue;
+			}
+
+			short originUb = ub[u];
+			// get neighbors of vertex i
+			loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
+			
+			int v;
+			// get the core distribution for neighbors' contribution
+			memset(nbrCnt,0,sizeof(short)*(originUb+1));
+			for (int j = 0; j < degree; ++j){
+				v = nbr[j];
+				++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
+			}
+
+
+			// calculate new ub and new cnt
+			cnt[u] = 0;
+			for (int i = originUb; i > 0; --i){
+				cnt[u] += nbrCnt[i];
+				if(cnt[u] >= i){
+					ub[u] = i;
+					break;
+				}
+			}
+			
+			// process neighbors
+			if(ub[u]<originUb){
+				update = true;
+				for (int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(ub[v]>ub[u] && ub[v]<= originUb){
+						--cnt[v];
+					}
+				}
+			}
+			
+			m_cpBit[u] = true;
+			m_cntStar[u] = cnt[u];
+		}
+
+	}
+	
+	delete[] nbr;
+	delete[] nbrCnt;
+
+	fDat.fclose();
+	fIdx.fclose();
+}
 int Application::selectNbr(int a){
 	MyReadFile fIdx( m_idx );
 	fIdx.fopen( BUFFERED );
@@ -840,6 +1099,9 @@ void Application::dynamicCore(int num){
 	m_addBit = new bool[m_m];
 	memset(m_delBit,0,sizeof(bool)*m_m);
 	memset(m_addBit,0,sizeof(bool)*m_m);
+
+	calCntStar();
+	return;
 	
 
 
@@ -874,6 +1136,7 @@ void Application::dynamicCore(int num){
 	for (int i = 0; i < num; ++i){
 		printf("[%d,%d]\n",dynamic[i*2],dynamic[i*2+1] );
 		removeEdge(dynamic[i*2],dynamic[i*2+1]);
+		//calCntStar(true);
 	}
 	gettimeofday(&finish,NULL);
 	totaltimeB = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
@@ -885,9 +1148,12 @@ void Application::dynamicCore(int num){
 
 	printf("start add edges: \n");
 	gettimeofday(&start,NULL);
+	
+	
 	for (int i = 0; i < num; ++i){
 		printf("[%d,%d]\n",dynamic[i*2],dynamic[i*2+1] );
-		addEdge(dynamic[i*2],dynamic[i*2+1]);
+		//addEdge(dynamic[i*2],dynamic[i*2+1]);
+		addEdgeStar(dynamic[i*2],dynamic[i*2+1]);
 	}
 	gettimeofday(&finish,NULL);
 	totaltimeA = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
@@ -899,6 +1165,226 @@ void Application::dynamicCore(int num){
 	
 	printf("\nRemove %d edges, time = %.3f sec, average time for one edge: %.3f \n",num,totaltimeB,totaltimeB/num);
 
+}
+void Application::csUpdateRemove(bool ubChange,int a,int b){
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+
+	int* nbr = new int[m_maxDegree+100];
+	int degree;
+
+	// when ub is not changed
+	bool update = true;
+	if(!ubChange){
+		
+		while(update){
+			update = false;
+			for (int u = 0; u < m_m; ++u){
+				if(m_cpBit[u]){
+					loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
+					
+					m_cpBit[u] = false;
+					
+					for (int i = 0; i < degree; ++i){
+						int v = nbr[i];
+						if(ub[v]==ub[u]){
+							--m_cntStar[v];
+							if(m_cntStar[v]==ub[v]){
+								update = true;
+								m_cpBit[v] = true;
+							}
+						}
+
+					}
+					
+
+				}
+			}
+		}
+
+		return;
+	}
+	
+	// when ub is changed
+
+	while(update){
+		update = false;
+		for (int u = 0; u < m_m; ++u){
+			if(m_cpBit[u]){
+				loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
+				
+				m_cntStar[u] = 0;
+				for (int i = 0; i < degree; ++i){
+					int v = nbr[i];
+					if(ub[v]>ub[u] || (ub[v]==ub[u] && m_cntStar[v]>ub[v])){
+						++m_cntStar[u];
+					}
+
+				}
+				++m_cntStar[u];
+				m_cpBit[u] = false;
+				if(m_cntStar[u]<=ub[u]){
+					update = true;
+					for (int i = 0; i < degree; ++i){
+						int v = nbr[i];
+						if(ub[v]==ub[u] && m_cntStar[v]>ub[v]){
+							--m_cntStar[v];
+							if(m_cntStar[v]==ub[v]){
+								m_cpBit[v] = true;
+							}
+						}
+
+					}
+				}
+
+			}
+		}
+	}
+
+	
+
+	
+	delete[] nbr;
+	
+	fDat.fclose();
+	fIdx.fclose();
+}
+void Application::csUpdateAdd(){
+
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+	
+
+	int* nbr = new int[m_maxDegree];
+	int degree;
+
+	bool update = true;
+	while(update){
+		update = false;
+		for (int u = 0; u < m_m; ++u){
+			if(m_cpBit[u]){
+				loadNbr(u,nbr,degree,fIdx,fDat);
+				
+				m_cntStar[u] = 0;
+				for (int i = 0; i < degree; ++i){
+					int v = nbr[i];
+					if(ub[v]>ub[u] || (ub[v]==ub[u] && m_cntStar[v]>ub[v])){
+						++m_cntStar[u];
+					}
+
+				}
+				++m_cntStar[u];
+				m_cpBit[u] = false;
+				if(m_cntStar[u]<=ub[u]){
+					update = true;
+					for (int i = 0; i < degree; ++i){
+						int v = nbr[i];
+						if(ub[v]==ub[u] && m_cntStar[v]>ub[v]){
+							--m_cntStar[v];
+							if(m_cntStar[v]==ub[v]){
+								m_cpBit[v] = true;
+							}
+						}
+
+					}
+				}
+
+			}
+		}
+	}
+
+	
+	delete[] nbr;
+	
+	fDat.fclose();
+	fIdx.fclose();
+}
+
+void Application::calCntStar(){
+	
+
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+	
+	m_cpBit = new bool[m_m];
+	m_cntStar = new short[m_m];
+	for(int u = 0;u<m_m;++u){
+		if(cnt[u]==ub[u]){
+			m_cntStar[u] = -1;
+			m_cpBit[u] = false;
+		}else{
+			m_cntStar[u] = cnt[u]+1;
+			m_cpBit[u] = true;
+		}
+		
+	}
+	
+
+	int* nbr = new int[m_maxDegree];
+	int degree;
+
+	int iteration = 0;
+	bool update = true;
+	while(update){
+		update = false;
+		++iteration;
+		for (int u = 0; u < m_m; ++u){
+			if(m_cpBit[u]){
+				loadNbr(u,nbr,degree,fIdx,fDat);
+				m_cpBit[u] = false;
+				int csOrigin = m_cntStar[u];
+				if(iteration == 1){
+					
+					m_cntStar[u] = 0;
+					for (int i = 0; i < degree; ++i){
+						int v = nbr[i];
+						if(ub[v]>ub[u] || (ub[v]==ub[u] && m_cntStar[v]>ub[v])){
+							++m_cntStar[u];
+						}
+
+					}
+					++m_cntStar[u];
+				}
+				
+				if(iteration>1 || (csOrigin > ub[u] && m_cntStar[u]<=ub[u]) ){
+					update = true;
+					for (int i = 0; i < degree; ++i){
+						int v = nbr[i];
+						if(ub[v]==ub[u]){
+							--m_cntStar[v];
+							if(m_cntStar[v]==ub[v]){
+								m_cpBit[v] = true;
+							}
+						}
+
+					}
+				}
+
+			}
+		}
+	}
+
+	
+	delete[] nbr;
+	// int a=0,b=0;
+	// for(int m=0;m<m_m;++m){
+	// 	if(cnt[m]==ub[m]){
+	// 		++b;
+	// 	}
+	// 	if(m_cntStar[m]<=ub[m]){
+	// 		++a;
+	// 	}
+	// }
+	
+	// printf("vertex number:%d,star number:%d,cnt number:%d\n",m_m,a,b );
+	fDat.fclose();
+	fIdx.fclose();
 }
 
 
