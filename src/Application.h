@@ -27,8 +27,8 @@ private:
 	string m_info;
 	int m_m;
 	int m_maxDegree;
-	short* ub;
-	short* cnt;
+	unsigned short* ub;
+	unsigned short* cnt;
 
 	vector<int>** m_dynamicAdd;
 	unordered_set<int>** m_dynamicDel;
@@ -38,7 +38,7 @@ private:
 
 
 	int m_maxID;
-	const static short m_maxCore = 30000;
+	const static unsigned short m_maxCore = 60000;
 	int* m_vertexMap;
 	int getVertexID(int u,int& num);
 	void saveTmpEdges(Edge* edges,int size,int tmpFile);
@@ -49,6 +49,8 @@ private:
 	void loadNbr(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
 	void loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fIdx, MyReadFile& fDat);
 	int selectNbr(int a);
+
+	bool isNbr(int a, int b);
 
 public:
 	Application();

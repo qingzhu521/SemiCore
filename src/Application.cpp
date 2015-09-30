@@ -303,12 +303,12 @@ void Application::semiKCoreNaive(){
 	fDat.fopen( BUFFERED );
 
 	// array for saving upper bound of vertex core number, array will update iteratively
-	ub = new short[m_m];
+	ub = new unsigned short[m_m];
 	
 
 	// array for loading every
 	int* nbr = new int[m_maxDegree];
-	short* nbrCnt = new short[m_maxDegree];
+	unsigned short* nbrCnt = new unsigned short[m_maxDegree+1];
 
 
 	// initialize array ub and cnt by degree and 0 respectively
@@ -339,7 +339,7 @@ void Application::semiKCoreNaive(){
 		
 		for (int u = 0; u < m_m; ++u){
 
-			short originUb = ub[u];
+			unsigned short originUb = ub[u];
 			// get neighbors of vertex i
 			loadNbr(u,nbr,degree,fIdx,fDat);
 			
@@ -409,13 +409,13 @@ void Application::semiKCore(){
 	fDat.fopen( BUFFERED );
 
 	// array for saving upper bound of vertex core number, array will update iteratively
-	ub = new short[m_m];
+	ub = new unsigned short[m_m];
 	// array for saving count number of vertex
-	cnt = new short[m_m];
+	cnt = new unsigned short[m_m];
 
 	// array for loading every
 	int* nbr = new int[m_maxDegree];
-	short* nbrCnt = new short[m_maxDegree];
+	unsigned short* nbrCnt = new unsigned short[m_maxDegree+1];
 
 
 	// initialize array ub and cnt by degree and 0 respectively
@@ -427,16 +427,21 @@ void Application::semiKCore(){
 		fIdx.fread(&degreeTmp,sizeof(int));
 		ub[i] = degreeTmp>m_maxCore?m_maxCore:degreeTmp;
 	}
-	memset(cnt,0,sizeof(short)*m_m);
+	memset(cnt,0,sizeof(unsigned short)*m_m);
 
 
 	int degree;
 	int v;
 	int iteration = 0;
 	
-	double memory = (sizeof(short)*m_m*2+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree)/1024;
+	double memory = (sizeof(unsigned short)*m_m*2+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree)/1024;
 	printf("Memory useage: %.3f KB, %.3f MB\n",memory,memory/1024 );
 
+	int min = 0;
+	int mint = m_m;
+
+	int max = m_m;
+	int maxt = 0;
 	
 	bool update = true;
 	while(update){
@@ -444,19 +449,18 @@ void Application::semiKCore(){
 		printf("iteration: %d\n",++iteration );
 
 		
-		for (int u = 0; u < m_m; ++u){
-
+		for (int u = min; u < max; ++u){
 			if(cnt[u]>=ub[u]){
 				continue;
 			}
 
-			short originUb = ub[u];
+			unsigned short originUb = ub[u];
 			// get neighbors of vertex i
 			loadNbr(u,nbr,degree,fIdx,fDat);
 			
 
 			// get the core distribution for neighbors' contribution
-			memset(nbrCnt,0,sizeof(short)*(originUb+1));
+			memset(nbrCnt,0,sizeof(unsigned short)*(originUb+1));
 			for (int j = 0; j < degree; ++j){
 				v = nbr[j];
 				++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
@@ -478,14 +482,28 @@ void Application::semiKCore(){
 				update = true;
 				for (int i = 0; i < degree; ++i){
 					v = nbr[i];
-					if(ub[v]>ub[u] && ub[v]<= originUb){
+					if(ub[v]>ub[u] && ub[v]<= originUb && cnt[v] >= ub[v]){
 						--cnt[v];
+						if(cnt[v]<ub[v]){
+							
+							if(v>max-1) max = v+1;
+							if(v<u){
+								if(v<mint) mint = v;
+								if(v>maxt) maxt = v;
+							}
+							
+						}
 					}
 				}
 			}
 			
 			
 		}
+
+		min = mint;
+		mint = m_m;
+		max = maxt+1;
+		maxt = 0;
 
 	}
 	
@@ -605,7 +623,7 @@ void Application::addEdge(int a, int b){
 	int* nbr = new int[m_maxDegree+100];
 	int degree;
 
-	short* cntPlus = new short[m_m];
+	int* cntPlus = new int[m_m];
 
 	bool* x = new bool[m_m];
 	bool* y = new bool[m_m];
@@ -625,9 +643,13 @@ void Application::addEdge(int a, int b){
 
 	bool update = true;
 	int v;
+	int min = 0;
+	int mint = m_m;
+	int max = m_m;
+	int maxt = 0;
 	while(update){
 		update = false;
-		for(int u = 0; u<m_m; ++u){
+		for(int u = min; u<max; ++u){
 			if(y[u] == true && x[u] == false){
 				x[u] = true;
 				y[u] = true;
@@ -650,7 +672,12 @@ void Application::addEdge(int a, int b){
 						if(ub[v]==ub[u] && cnt[v] > ub[v] && !x[v] && !y[v]){
 							x[v] = false;
 							y[v] = true;
-
+							
+							if(v>max-1) max = v+1;
+							if(v<u){
+								if(v<mint) mint = v;
+								if(v>maxt) maxt = v;
+							}
 						}
 					}
 				}
@@ -666,13 +693,26 @@ void Application::addEdge(int a, int b){
 					v = nbr[i];
 					if(x[v] && y[v]){
 						--cntPlus[v];
+						if(cntPlus[v]<=ub[v]){
+							if(v>max-1) max = v+1;
+							if(v<u){
+								if(v<mint) mint = v;
+								if(v>maxt) maxt = v;
+							}
+						}
+						
+
 					}
 				}
 
 			}
 			degree = -1;
 		}
-
+		
+		min = mint;
+		mint = m_m;
+		max = maxt+1;
+		maxt = 0;
 	}
 
 	for(int u = 0; u < m_m; ++u){
@@ -742,28 +782,32 @@ void Application::removeEdge(int a, int b){
 
 	int* nbr = new int[m_maxDegree];
 	int degree;
-	short* nbrCnt = new short[m_maxDegree];
+	unsigned short* nbrCnt = new unsigned short[m_maxDegree+1];
 
-	
+
+	int min = 0;
+	int mint = m_m;
+	int max = m_m;
+	int maxt = 0;
 
 	bool update = true;
 	while(update){
 		update = false;
 
 		
-		for (int u = 0; u < m_m; ++u){
+		for (int u = min; u < max; ++u){
 
 			if(cnt[u]>=ub[u]){
 				continue;
 			}
 
-			short originUb = ub[u];
+			unsigned short originUb = ub[u];
 			// get neighbors of vertex i
 			loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
 			
 			int v;
 			// get the core distribution for neighbors' contribution
-			memset(nbrCnt,0,sizeof(short)*(originUb+1));
+			memset(nbrCnt,0,sizeof(unsigned short)*(originUb+1));
 			for (int j = 0; j < degree; ++j){
 				v = nbr[j];
 				++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
@@ -785,14 +829,27 @@ void Application::removeEdge(int a, int b){
 				update = true;
 				for (int i = 0; i < degree; ++i){
 					v = nbr[i];
-					if(ub[v]>ub[u] && ub[v]<= originUb){
+					if(ub[v]>ub[u] && ub[v]<= originUb && cnt[v] >= ub[v]){
 						--cnt[v];
+						if(cnt[v]<ub[v]){
+							
+							if(v>max-1) max = v+1;
+							if(v<u){
+								if(v<mint) mint = v;
+								if(v>maxt) maxt = v;
+							}
+							
+						}
 					}
 				}
 			}
 			
 			
 		}
+		min = mint;
+		mint = m_m;
+		max = maxt+1;
+		maxt = 0;
 
 	}
 	
@@ -802,6 +859,41 @@ void Application::removeEdge(int a, int b){
 	fDat.fclose();
 	fIdx.fclose();
 }
+
+bool Application::isNbr(int a,int b){
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+	int* nbr = new int[m_maxDegree];
+	int degree;
+
+	fIdx.fseek(a*(sizeof(long)+sizeof(int)));
+
+	long pos;
+	fIdx.fread(&pos,sizeof(long));
+	fIdx.fread(&degree,sizeof(int));
+
+	fDat.fseek(pos);
+	
+	// load all neighbors of vertex u
+	fDat.fread(nbr,sizeof(int)*degree);
+
+	bool flag = false;
+	for(int i=0;i<degree;++i){
+		if(nbr[i] == b){
+			flag = true;
+			break;
+		}
+	}
+
+	delete nbr;
+
+	fDat.fclose();
+	fIdx.fclose();
+	return flag;
+}
+
 
 int Application::selectNbr(int a){
 	MyReadFile fIdx( m_idx );
@@ -843,31 +935,34 @@ void Application::dynamicCore(int num){
 	
 
 
-	// prepare dynamic edges
+	// prepare dynamic edges  
 	int dynamic[num*2];
-	int sep = m_m/num;
-	int curVertex = 0, cut = 0;
-	int min, max;
-	for(int i=0;curVertex<m_m;i+=2){
-		int b = selectNbr(curVertex);
-		if(b%num == 0 && b<curVertex){
-			++cut;
-			i -= 2;
-		}else{
-			dynamic[i] = curVertex;
-			dynamic[i+1] = b;
-		}
-		curVertex += sep;
-	}
-	num -= cut;
-	printf("select %d edges\n",num );
 
+	int strategy = 0;
+	if(strategy == 0){
+		int sep = m_m/num;
+		int curVertex = 0, cut = 0;
+		
+		for(int i=0;curVertex<m_m;i+=2){
+			int b = selectNbr(curVertex);
+			if(b%num == 0 && b<curVertex){
+				++cut;
+				i -= 2;
+			}else{
+				dynamic[i] = curVertex;
+				dynamic[i+1] = b;
+			}
+			curVertex += sep;
+		}
+		num -= cut;
+		printf("select %d edges\n",num );
+	}
 
 
 
 	struct timeval start,finish;
 	
-	// remove edge
+	// // remove edge
 	printf("start remove edges:\n");
 	gettimeofday(&start,NULL);
 	double totaltimeB = 0.0;
@@ -882,7 +977,6 @@ void Application::dynamicCore(int num){
 	
 	// add edge
 	double totaltimeA = 0.0;
-
 	printf("start add edges: \n");
 	gettimeofday(&start,NULL);
 	for (int i = 0; i < num; ++i){
@@ -891,6 +985,21 @@ void Application::dynamicCore(int num){
 	}
 	gettimeofday(&finish,NULL);
 	totaltimeA = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
+	
+
+
+	
+	
+	//remove edge
+	// double totaltimeB = 0.0;
+	// printf("start remove edges:\n");
+	// gettimeofday(&start,NULL);
+	// for (int i = 0; i < num; ++i){
+	// 	printf("[%d,%d]\n",dynamic[i*2],dynamic[i*2+1] );
+	// 	removeEdge(dynamic[i*2],dynamic[i*2+1]);
+	// }
+	// gettimeofday(&finish,NULL);
+	// totaltimeB = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
 	
 
 
@@ -924,14 +1033,15 @@ void Application::getGraphInfo(){
 		r += degree;
 	}
 	fIdx.fclose();
-	printf("Number of vertices: %d, max degree: %d, edges: %lu\n",m_m, m_maxDegree,r>>1 );
+	r = r>>1;
+	printf("Number of vertices: %d, max degree: %d, edges: %lu\n",m_m, m_maxDegree,r );
 }
 void Application::saveCore(){
 	printf("save core number and cnt number\n");
 	string core = m_base+"core.st";
 	FILE* fSt = fopen(core.c_str(),"wb");
-	fwrite(ub,sizeof(short),m_m,fSt);
-	fwrite(cnt,sizeof(short),m_m,fSt);
+	fwrite(ub,sizeof(unsigned short),m_m,fSt);
+	fwrite(cnt,sizeof(unsigned short),m_m,fSt);
 	fclose(fSt);
 }
 void Application::loadCore(){
@@ -946,9 +1056,9 @@ void Application::loadCore(){
 	string core = m_base+"core.st";
 	MyReadFile fSt( core );
 	fSt.fopen( BUFFERED );
-	ub = new short[m_m];
-	cnt = new short[m_m];
-	fSt.fread(ub,sizeof(short)*m_m);
-	fSt.fread(cnt,sizeof(short)*m_m);
+	ub = new unsigned short[m_m];
+	cnt = new unsigned short[m_m];
+	fSt.fread(ub,sizeof(unsigned short)*m_m);
+	fSt.fread(cnt,sizeof(unsigned short)*m_m);
 	fSt.fclose();
 }
