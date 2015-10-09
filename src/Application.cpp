@@ -45,7 +45,7 @@ Application::~Application(){
 	
 }
 
-void Application::sortEdge(string txtFile,int scale){
+void Application::sortEdge(string txtFile,int scale, bool byEdge){
 	printf("Start... txtFile: %s\n",txtFile.c_str());
 
 	scale = scale/10-1;
@@ -68,6 +68,8 @@ void Application::sortEdge(string txtFile,int scale){
 
 	int u,v;
 
+	unsigned long es = 0;
+
 	int size = 0,num = 0,tmpFile = 0;
 	printf("Separating: \n");
 	while(fgets(line,100,fp)){
@@ -75,11 +77,15 @@ void Application::sortEdge(string txtFile,int scale){
 		if( line[0] < '0' || line[0] > '9' )
 			continue;
 
-		sscanf(line,"%d\t%d",&u,&v);
+		sscanf(line,"%d,%d",&u,&v);
 
 		if(u == v) continue;
-
-		if(u%10>scale || v%10>scale) continue;
+		++es;
+		if(byEdge){
+			if(es%10>scale) continue;
+		}else{
+			if(u%10>scale || v%10>scale) continue;
+		}
 
 		u = getVertexID(u,num);
 		v = getVertexID(v,num);
@@ -595,6 +601,163 @@ void Application::loadNbrForDynamic(int u, int* nbr, int& degree, MyReadFile& fI
 	
 }
 
+void Application::addEdgeNaive(int a, int b){
+	if(m_delBit[b] && m_delBit[a] && m_dynamicDel[a]->find(b)!=m_dynamicDel[a]->end()){
+		m_dynamicDel[a]->erase(b);
+		m_dynamicDel[b]->erase(a);
+	}else{
+		if(!m_addBit[a]){
+			m_dynamicAdd[a] = new vector<int>;
+			m_addBit[a] = true;
+
+		}
+		if(!m_addBit[b]){
+			m_dynamicAdd[b] = new vector<int>;
+			m_addBit[b] = true;
+		}
+		m_dynamicAdd[a]->push_back(b);
+		m_dynamicAdd[b]->push_back(a);
+	}
+
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+
+	int* nbr = new int[m_maxDegree+100];
+	int degree;
+	unsigned short* nbrCnt = new unsigned short[m_maxDegree+1];
+
+	bool* needUpdate = new bool[m_m];
+	memset(needUpdate,0,sizeof(bool)*m_m);
+
+	bool* wait = new bool[m_m];
+	memset(wait,0,sizeof(bool)*m_m);
+	
+	// if(ub[a] == ub[b]){
+	// 	y[b] = true;
+	// 	++cnt[b];
+	// }
+
+	int root = ub[a] > ub[b] ? b : a;
+	wait[root] = true;
+	int k = ub[root];
+	++ub[root];
+
+	bool update = true;
+	int v;
+	
+	while(update){
+		update = false;
+
+		
+		for (int u = 0; u < m_m; ++u){
+
+			if(!wait[u]){
+				continue;
+			}
+			wait[u] = false;
+			needUpdate[u] = true;
+			//++ub[u];
+			
+			
+			// get neighbors of vertex i
+			loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
+			
+			int v;
+			// get the core distribution for neighbors' contribution
+
+			for (int j = 0; j < degree; ++j){
+				v = nbr[j];
+				if(ub[v]==k && !wait[v] && !needUpdate[v]){
+					update = true;
+					wait[v] = true;
+					++ub[v];
+				}
+				
+			}
+
+			cnt[u] = 0;
+			for (int j = 0; j < degree; ++j){
+				v = nbr[j];
+				if(ub[v]>=ub[u]){
+					++cnt[u];
+				}
+				if(ub[v]==k+1 && !wait[v] && !needUpdate[v]){
+					++cnt[v];
+				}
+			}
+			
+			
+		}
+		
+
+	}
+
+
+
+
+	update = true;
+	while(update){
+		update = false;
+
+		
+		for (int u = 0; u < m_m; ++u){
+
+			if(cnt[u]>=ub[u]){
+				continue;
+			}
+
+			unsigned short originUb = ub[u];
+			// get neighbors of vertex i
+			loadNbrForDynamic(u,nbr,degree,fIdx,fDat);
+			
+			int v;
+			// get the core distribution for neighbors' contribution
+			memset(nbrCnt,0,sizeof(unsigned short)*(originUb+1));
+			for (int j = 0; j < degree; ++j){
+				v = nbr[j];
+				++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
+			}
+
+
+			// calculate new ub and new cnt
+			cnt[u] = 0;
+			for (int i = originUb; i > 0; --i){
+				cnt[u] += nbrCnt[i];
+				if(cnt[u] >= i){
+					ub[u] = i;
+					break;
+				}
+			}
+			
+			// process neighbors
+			if(ub[u]<originUb){
+				update = true;
+				for (int i = 0; i < degree; ++i){
+					v = nbr[i];
+					if(ub[v]>ub[u] && ub[v]<= originUb && cnt[v] >= ub[v]){
+						--cnt[v];
+					}
+				}
+			}
+			
+			
+		}
+
+	}
+	
+	// update cnt
+
+	delete[] wait;
+	delete[] needUpdate;
+	delete[] nbr;
+	delete[] nbrCnt;
+	
+
+	fDat.fclose();
+	fIdx.fclose();
+}
 
 void Application::addEdge(int a, int b){
 
@@ -982,24 +1145,10 @@ void Application::dynamicCore(int num){
 	for (int i = 0; i < num; ++i){
 		printf("[%d,%d]\n",dynamic[i*2],dynamic[i*2+1] );
 		addEdge(dynamic[i*2],dynamic[i*2+1]);
+		//addEdgeNaive(dynamic[i*2],dynamic[i*2+1]);
 	}
 	gettimeofday(&finish,NULL);
 	totaltimeA = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
-	
-
-
-	
-	
-	//remove edge
-	// double totaltimeB = 0.0;
-	// printf("start remove edges:\n");
-	// gettimeofday(&start,NULL);
-	// for (int i = 0; i < num; ++i){
-	// 	printf("[%d,%d]\n",dynamic[i*2],dynamic[i*2+1] );
-	// 	removeEdge(dynamic[i*2],dynamic[i*2+1]);
-	// }
-	// gettimeofday(&finish,NULL);
-	// totaltimeB = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
 	
 
 

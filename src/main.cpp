@@ -8,13 +8,14 @@ int main(){
 	
 	Application* app = new Application("/Users/DongWen/workspace/dataset/lj/");
 
-	//app->sortEdge("/Users/DongWen/workspace/Hummingbird/dataset/test.txt",100);
+	//app->sortEdge("/Users/DongWen/workspace/Hummingbird/dataset/test.txt",100,true);
 	
-	app->getGraphInfo();
+	//app->getGraphInfo();
 	//app->semiKCore();
 	//app->saveCore();
-	//app->loadCore();
-	//app->dynamicCore(100);
+	app->loadCore();
+
+	app->dynamicCore(100);
 	
 	
 	app->printCoreDistribution();

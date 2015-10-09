@@ -56,11 +56,12 @@ public:
 	Application();
 	Application(string base);
 	~Application();
-	void sortEdge(string txtFile, int scale);
+	void sortEdge(string txtFile, int scale, bool byEdge);
 	void semiKCore();
 	void semiKCoreNaive();
 	void printCoreDistribution();
 	void addEdge(int a, int b);
+	void addEdgeNaive(int a, int b);
 
 	void removeEdge(int a, int b);
 	void dynamicCore(int num);
