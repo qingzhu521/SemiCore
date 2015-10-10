@@ -435,6 +435,7 @@ void Application::semiKCore(){
 	}
 	memset(cnt,0,sizeof(unsigned short)*m_m);
 
+	// vector<int> vdis;
 
 	int degree;
 	int v;
@@ -454,6 +455,7 @@ void Application::semiKCore(){
 		update = false;
 		printf("iteration: %d\n",++iteration );
 
+		// int vnum = 0;
 		
 		for (int u = min; u < max; ++u){
 			if(cnt[u]>=ub[u]){
@@ -485,6 +487,7 @@ void Application::semiKCore(){
 			
 			// process neighbors
 			if(ub[u]<originUb){
+				// ++vnum;
 				update = true;
 				for (int i = 0; i < degree; ++i){
 					v = nbr[i];
@@ -510,7 +513,7 @@ void Application::semiKCore(){
 		mint = m_m;
 		max = maxt+1;
 		maxt = 0;
-
+		// vdis.push_back(vnum);
 	}
 	
 	gettimeofday(&finish,NULL);
@@ -527,6 +530,27 @@ void Application::semiKCore(){
 	
 	fDat.fclose();
 	fIdx.fclose();
+
+
+
+	// save vdis
+	// int scal = 1;
+	
+	// FILE* vd = fopen("/Users/DongWen/workspace/demo.txt","w");
+
+	// for(int i = 0;i<vdis.size();++i){
+	// 	if(i%scal == 0){
+	// 		int ti = i+1;
+	// 		char tmp[100];
+	// 		sprintf(tmp,"%d\t%d",ti,vdis[i]);
+	// 		fputs(tmp,vd);
+	// 		fputc('\n',vd);
+	// 	}
+		
+	// }
+
+	// fclose(vd);
+
 
 }
 
