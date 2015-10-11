@@ -11,7 +11,8 @@ int main(){
 	//app->sortEdge("/Users/DongWen/workspace/Hummingbird/dataset/test.txt",100,true);
 	
 	//app->getGraphInfo();
-	app->semiKCore();
+	// app->semiKCore();
+	app->semiKCoreNaivePlus();
 	//app->saveCore();
 	//app->loadCore();
 

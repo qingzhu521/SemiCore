@@ -59,6 +59,7 @@ public:
 	void sortEdge(string txtFile, int scale, bool byEdge);
 	void semiKCore();
 	void semiKCoreNaive();
+	void semiKCoreNaivePlus();
 	void printCoreDistribution();
 	void addEdge(int a, int b);
 	void addEdgeNaive(int a, int b);

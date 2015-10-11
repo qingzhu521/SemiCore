@@ -394,6 +394,134 @@ void Application::semiKCoreNaive(){
 	fIdx.fclose();
 }
 
+void Application::semiKCoreNaivePlus(){
+	MyReadFile fInfo( m_info );
+	fInfo.fopen( BUFFERED );
+	// initialize verterx number: n
+	fInfo.fread(&m_m,sizeof(int));
+	fInfo.fread(&m_maxDegree,sizeof(int));
+	printf("Number of vertices: %d, max degree: %d\n",m_m, m_maxDegree );
+	fInfo.fclose();
+
+
+	struct timeval start,finish;
+	gettimeofday(&start,NULL);
+	double totaltime = 0.0;
+	
+	MyReadFile fIdx( m_idx );
+	fIdx.fopen( BUFFERED );
+	MyReadFile fDat( m_dat );
+	fDat.fopen( BUFFERED );
+
+	// array for saving upper bound of vertex core number, array will update iteratively
+	ub = new unsigned short[m_m];
+	
+
+	// array for loading every
+	int* nbr = new int[m_maxDegree];
+	unsigned short* nbrCnt = new unsigned short[m_maxDegree+1];
+
+
+	// initialize array ub and cnt by degree and 0 respectively
+	long tmp;
+	int degreeTmp;
+	for (int i = 0; i < m_m; ++i){
+		fIdx.fread(&tmp,sizeof(long));
+
+		fIdx.fread(&degreeTmp,sizeof(int));
+		ub[i] = degreeTmp>m_maxCore?m_maxCore:degreeTmp;
+	}
+	
+	bool* wait = new bool[m_m];
+	memset(wait,1,sizeof(bool)*m_m);
+
+	int degree;
+	int v;
+	int iteration = 0;
+	
+	double memory = (sizeof(short)*m_m+sizeof(int)*m_maxDegree+sizeof(short)*m_maxDegree+m_m/8)/1024;
+	printf("[Naive] Memory useage: %.3f KB, %.3f MB\n",memory,memory/1024 );
+
+	int min = 0;
+	int mint = m_m;
+
+	int max = m_m;
+	int maxt = 0;
+	
+	bool update = true;
+	while(update){
+		update = false;
+		printf("[Naive Plus] iteration: %d\n",++iteration );
+
+		
+		for (int u = min; u < max; ++u){
+			if(!wait[u]) continue;
+
+			wait[u] = false;
+			unsigned short originUb = ub[u];
+			// get neighbors of vertex i
+			loadNbr(u,nbr,degree,fIdx,fDat);
+			
+
+			// get the core distribution for neighbors' contribution
+			memset(nbrCnt,0,sizeof(short)*(originUb+1));
+			for (int j = 0; j < degree; ++j){
+				v = nbr[j];
+				++nbrCnt[ub[v]<ub[u]?ub[v]:ub[u]];
+			}
+
+
+			// calculate new ub and new cnt
+			int cnt = 0;
+			for (int i = originUb; i > 0; --i){
+				cnt += nbrCnt[i];
+				if(cnt >= i){
+					ub[u] = i;
+					break;
+				}
+			}
+			
+			// process neighbors
+			if(ub[u]<originUb){
+				update = true;
+				for (int j = 0; j < degree; ++j){
+					v = nbr[j];
+					wait[v] = true;
+					if(v>max-1) max = v+1;
+					if(v<u){
+						if(v<mint) mint = v;
+						if(v>maxt) maxt = v;
+					}
+				}
+
+			}
+			
+			
+		}
+		min = mint;
+		mint = m_m;
+		max = maxt+1;
+		maxt = 0;
+
+	}
+	
+	gettimeofday(&finish,NULL);
+	totaltime = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
+	
+	printf("[Naive]Total processing time = %.3f sec\n",totaltime);
+	
+	printf("[Naive]Memory useage: %.3f KB, %.3f MB\n",memory,memory/1024 );
+	printf("[Naive]I/O number: %ld (.dat file), %ld (.idx file) \n",fDat.get_total_io(),fIdx.get_total_io());
+	printf("[Naive]Number of vertices: %d, max degree: %d\n",m_m, m_maxDegree );
+
+	delete[] nbrCnt;
+	delete[] nbr;
+	delete[] wait;
+	
+	fDat.fclose();
+	fIdx.fclose();
+}
+
 void Application::semiKCore(){
 	
 	MyReadFile fInfo( m_info );
