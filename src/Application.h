@@ -36,6 +36,9 @@ private:
 	bool* m_addBit;
 	bool* m_delBit;
 
+	long m_addIO;
+	long m_delIO;
+
 
 	int m_maxID;
 	const static unsigned short m_maxCore = 60000;

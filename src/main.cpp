@@ -12,11 +12,11 @@ int main(){
 	
 	//app->getGraphInfo();
 	// app->semiKCore();
-	app->semiKCoreNaivePlus();
+	//app->semiKCoreNaivePlus();
 	//app->saveCore();
-	//app->loadCore();
+	app->loadCore();
 
-	//app->dynamicCore(100);
+	app->dynamicCore(100);
 	
 	
 	app->printCoreDistribution();

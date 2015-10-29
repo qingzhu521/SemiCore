@@ -899,6 +899,7 @@ void Application::addEdgeNaive(int a, int b){
 
 	}
 	
+	m_addIO += fDat.get_total_io()+fIdx.get_total_io();
 	// update cnt
 
 	delete[] wait;
@@ -1029,6 +1030,8 @@ void Application::addEdge(int a, int b){
 		max = maxt+1;
 		maxt = 0;
 	}
+
+	m_addIO += fDat.get_total_io()+fIdx.get_total_io();
 
 	for(int u = 0; u < m_m; ++u){
 		if(!y[u]){
@@ -1171,6 +1174,8 @@ void Application::removeEdge(int a, int b){
 	delete[] nbr;
 	delete[] nbrCnt;
 
+	m_delIO += fDat.get_total_io()+fIdx.get_total_io();
+
 	fDat.fclose();
 	fIdx.fclose();
 }
@@ -1249,7 +1254,8 @@ void Application::dynamicCore(int num){
 	memset(m_addBit,0,sizeof(bool)*m_m);
 	
 
-
+	m_addIO = 0;
+	m_delIO = 0;
 	// prepare dynamic edges  
 	int dynamic[num*2];
 
@@ -1297,7 +1303,7 @@ void Application::dynamicCore(int num){
 	for (int i = 0; i < num; ++i){
 		printf("[%d,%d]\n",dynamic[i*2],dynamic[i*2+1] );
 		addEdge(dynamic[i*2],dynamic[i*2+1]);
-		//addEdgeNaive(dynamic[i*2],dynamic[i*2+1]);
+		// addEdgeNaive(dynamic[i*2],dynamic[i*2+1]);
 	}
 	gettimeofday(&finish,NULL);
 	totaltimeA = finish.tv_sec - start.tv_sec + (finish.tv_usec - start.tv_usec) / 1000000.0;
@@ -1306,9 +1312,11 @@ void Application::dynamicCore(int num){
 
 
 	printf("\nAdd %d edges, time = %.3f sec, average time for one edge: %.3f \n",num,totaltimeA,totaltimeA/num);
-	
 	printf("\nRemove %d edges, time = %.3f sec, average time for one edge: %.3f \n",num,totaltimeB,totaltimeB/num);
+	
+	printf("average add IO = %ld\n",m_addIO/num );
 
+	printf("average del IO = %ld\n",m_delIO/num );
 }
 
 
