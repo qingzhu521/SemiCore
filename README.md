@@ -1,2 +1,2 @@
-# Hummingbird
-beta 1.0
+# SemiCore
+Semi Core Decomposition Algorithm
